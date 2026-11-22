@@ -12,6 +12,10 @@ metadata:
 
 Turn what you know into something a person understands in ten seconds. The default output is one HTML page whose spine is figures; text is caption, not content. Animate when motion helps the reader understand a process, a flow, a change of state, or cause and effect; keep what is static still.
 
+## Software design profile (optional)
+
+For a software design proposal requiring requirement/rule/acceptance traceability, or `/generate-software-design`, follow `references/software-design.md`. This profile uses one structured source to generate a complete Chinese HTML proposal, diagrams, and evidence-backed checks. Its delivery, language, and verification rules take precedence over the generic page rules below for that task. Other commands keep their existing workflow.
+
 ## Deliver
 
 - Write `<descriptive-name>.src.html` in the output directory: native Pi uses `prepare`'s reported `outputDir`; elsewhere use the tool's directory, the user's path, or `~/.agent/diagrams/`. Pick a register with `<html data-register="…">` and put `<link rel="stylesheet" href="kit.css" data-ve-kit>` in `<head>`. The kit (`references/kit.md`) brings tokens, fonts, figure CSS, and script; add only this page's CSS. CDN only for libraries.
