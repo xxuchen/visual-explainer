@@ -1,0 +1,71 @@
+name: Software design compatibility
+
+on:
+  push:
+    paths:
+      - 'plugins/visual-explainer/**'
+      - 'scripts/**'
+      - 'package.json'
+      - '.github/workflows/software-design.yml'
+  pull_request:
+    paths:
+      - 'plugins/visual-explainer/**'
+      - 'scripts/**'
+      - 'package.json'
+      - '.github/workflows/software-design.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Upstream checks
+        if: runner.os == 'Linux'
+        run: |
+          node scripts/check-versions.mjs
+          node scripts/check-kit.mjs
+          node scripts/check-machine.mjs
+          node scripts/check-ask.mjs
+      - name: Extension and adapter checks
+        run: node scripts/check-software-design.mjs
+      - name: Render the Chinese example offline
+        run: node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design.json --out output/software-design.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: software-design-${{ runner.os }}
+          path: output/
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the existing optional browser dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/ve-browser" --ignore-scripts --no-package-lock "playwright-core@$(node -p "require('./package.json').devDependencies['playwright-core']")"
+          echo "NODE_PATH=$RUNNER_TEMP/ve-browser/node_modules" >> "$GITHUB_ENV"
+      - name: Install Chromium and Chinese fonts
+        run: |
+          "$RUNNER_TEMP/ve-browser/node_modules/.bin/playwright-core" install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk
+      - name: Verify the final HTML in Chromium
+        run: node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design.json --out output/software-design.html --require-browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: software-design-browser
+          path: output/
