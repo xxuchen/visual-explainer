@@ -1,0 +1,62 @@
+# 软件方案扩展与上游升级
+
+本 Fork 在 Visual Explainer v0.15.0 上增加可选软件方案模式。基线：`nicobailon/visual-explainer` 的 `9d5f880b7e8e0a9a80c890b8e1bb6918b68481ad`。
+
+## 改动边界
+
+唯一修改的上游既有文件是 `plugins/visual-explainer/SKILL.md`，新增一个模式入口段落。新功能独立放在以下位置：
+
+- `plugins/visual-explainer/software-design/`：模型、验证、SVG/HTML、命令和测试。
+- `plugins/visual-explainer/references/software-design.md`：五项规则和使用流程。
+- `plugins/visual-explainer/commands/generate-software-design.md`：可选命令入口。
+- `plugins/visual-explainer/templates/software-design.json`：可编辑示例。
+- `scripts/check-software-design.mjs`、`.github/workflows/software-design.yml`：扩展及兼容性检查。
+
+上游 `kit/`、`plan/`、MCP、Pi、默认命令、版本号和 package.json 均保持原样。扩展随现有 canonical skill 文件夹一起复制和打包；不依赖另一个全局 skill，也不拷贝一份上游运行时代码。
+
+## 兼容接口
+
+`software-design/upstream.mjs` 是唯一接触上游实现 API 的文件，仅调用 `kit/render.mjs` 的 `renderPage(source, {models:false})` 和 `prepareRenderedHtml(html)`。它保留 kit 内联资源与评论/回复交互，在此模式中移除已知 Google Fonts 链接，并添加离线内容策略；普通 kit 页面继续采用原有行为。
+
+上游 API 不是稳定公开协议。适配器形状检查、离线扫描、原项目检查和扩展契约测试共同提供升级信号；未来仍可能需要调整此适配器或入口段落。HTML 不依赖外网呈现，系统字体字形与细微排版可能随操作系统变化。
+
+此版本仅增加文件系统 CLI/命令提示，不增加专用 MCP 工具或 Pi tool 名称。支持加载该 skill 并执行 Node 的 agent 可使用完整流程。宿主是否自动发现 slash 命令取决于现有插件集成；直接要求 agent 读取 `references/software-design.md` 同样可用。
+
+## 合并上游
+
+在自己的 clone 中配置一次 `upstream`，每次升级在独立分支做普通 merge。保留扩展的独立提交，便于回退和审查。
+
+```bash
+git remote add upstream https://github.com/nicobailon/visual-explainer.git
+git fetch upstream
+git switch main
+git pull --ff-only origin main
+git switch -c chore/sync-upstream-YYYY-MM-DD
+git merge upstream/main
+```
+
+若已配置 upstream，跳过 add。遇到 `SKILL.md` 冲突，保留上游正文，再保留本扩展的模式入口段落。不要自动采用整文件的 ours/theirs 处理冲突。随后执行：
+
+```bash
+node scripts/check-versions.mjs
+node scripts/check-kit.mjs
+node scripts/check-machine.mjs
+node scripts/check-ask.mjs
+node scripts/check-software-design.mjs
+```
+
+重生成模板页面并做浏览器检查：
+
+```bash
+node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design.json --out output/software-design.html --require-browser
+```
+
+Windows 下直接运行以上 Node 命令。复制安装时复制整个 `plugins/visual-explainer/`，避免依赖根目录的 `skills/visual-explainer` 符号链接。CI 在 Linux 跑上游和扩展检查，在 Windows 跑扩展检查；另设真实浏览器任务。首次在 Fork 启用 Actions 可能需要仓库所有者按 GitHub 页面提示操作。
+
+检查通过后创建指向自己 Fork main 的升级 PR。这样官方代码变更与本地规则变更可以分别评审。
+
+## 版本与数据
+
+扩展输入格式以 `schemaVersion: 1` 单独版本化，不改官方版本号。未来字段语义发生不兼容变化时增加输入版本及显式迁移，不静默改写已有设计。设计 JSON 的 ID 保持稳定；回执绑定内容摘要（排除 verification 字段），实质修改方案后需重新执行相关验收。
+
+证据记录绑定方案和日志；它不签名、不自动证明业务测试覆盖充分，也不自动检测被测代码或环境是否已变化。实施代码/环境/依赖变更后应重跑测试，正式项目可用受信任 CI 产出并保留回执。
