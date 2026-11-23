@@ -3,12 +3,16 @@ name: Software design compatibility
 on:
   push:
     paths:
+      - '.gitattributes'
+      - 'install.bat'
       - 'plugins/visual-explainer/**'
       - 'scripts/**'
       - 'package.json'
       - '.github/workflows/software-design.yml'
   pull_request:
     paths:
+      - '.gitattributes'
+      - 'install.bat'
       - 'plugins/visual-explainer/**'
       - 'scripts/**'
       - 'package.json'
@@ -69,3 +73,22 @@ jobs:
         with:
           name: software-design-browser
           path: output/
+
+  windows-install:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install, update and reject an invalid install on Windows
+        shell: powershell
+        run: .\scripts\check-windows-install.ps1 -TestRoot "$env:RUNNER_TEMP\visual-explainer-install-check"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: software-design-windows-installer
+          path: |
+            ${{ runner.temp }}/visual-explainer-install-check/test-result.json
+            ${{ runner.temp }}/visual-explainer-install-check/agent home with spaces/visual-explainer-output/
