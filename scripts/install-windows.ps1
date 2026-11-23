@@ -87,7 +87,12 @@ function Invoke-Checked {
     param([string]$Command, [string[]]$Arguments, [string]$Label, [switch]$Quiet)
     Write-InstallMessage "[RUN] $Label"
     $savedPreference = $ErrorActionPreference
+    $savedConsoleEncoding = [Console]::OutputEncoding
     try {
+        # PowerShell 5.1 uses Console.OutputEncoding to decode captured native
+        # stdout and stderr. Node and Playwright emit UTF-8 even on a CP936
+        # console; decode correctly before displaying text or writing the log.
+        [Console]::OutputEncoding = $utf8
         # Windows PowerShell 5.1 wraps native stderr as ErrorRecord. npm and
         # Chromium download progress may use stderr even when exit code is 0.
         $ErrorActionPreference = 'Continue'
@@ -98,6 +103,7 @@ function Invoke-Checked {
         }
         $nativeExit = $LASTEXITCODE
     } finally {
+        [Console]::OutputEncoding = $savedConsoleEncoding
         $ErrorActionPreference = $savedPreference
     }
     if ($nativeExit -ne 0) {
