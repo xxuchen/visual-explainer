@@ -11,6 +11,7 @@
 - `plugins/visual-explainer/commands/generate-software-design.md`：可选命令入口。
 - `plugins/visual-explainer/templates/software-design.json`：可编辑示例。
 - `scripts/check-software-design.mjs`、`.github/workflows/software-design.yml`：扩展及兼容性检查。
+- `install.bat`、`scripts/install-windows.ps1`：独立的 Windows 安装入口与实现；`scripts/check-windows-install.ps1` 验证安装、升级和失败保护。
 
 上游 `kit/`、`plan/`、MCP、Pi、默认命令、版本号和 package.json 均保持原样。扩展随现有 canonical skill 文件夹一起复制和打包；不依赖另一个全局 skill，也不拷贝一份上游运行时代码。
 
@@ -21,6 +22,40 @@
 上游 API 不是稳定公开协议。适配器形状检查、离线扫描、原项目检查和扩展契约测试共同提供升级信号；未来仍可能需要调整此适配器或入口段落。HTML 不依赖外网呈现，系统字体字形与细微排版可能随操作系统变化。
 
 此版本仅增加文件系统 CLI/命令提示，不增加专用 MCP 工具或 Pi tool 名称。支持加载该 skill 并执行 Node 的 agent 可使用完整流程。宿主是否自动发现 slash 命令取决于现有插件集成；直接要求 agent 读取 `references/software-design.md` 同样可用。
+
+## Windows 自动安装
+
+使用完整仓库，安装入口位于根目录 `install.bat`。合并本 PR 前，在 GitHub Desktop 中切换到 `feat/software-design-rules`，点击 **Fetch origin / Pull origin**。例如仓库在 `D:\agent-tools\visual-explainer`，双击其中的 `install.bat`，或在 PowerShell 执行：
+
+```powershell
+& 'D:\agent-tools\visual-explainer\install.bat'
+```
+
+前置环境：Windows、Node.js 22 或更高版本及随附的 npm。可从 [Node.js 官方下载页](https://nodejs.org/en/download) 安装受支持的 LTS 版本；安装后重新打开终端。脚本使用 Windows 自带的 PowerShell 5.1，支持从 PowerShell 7 启动；缺少运行环境时会给出具体提示。使用实际运行 Codex 的 Windows 用户执行，无需管理员权限或 WSL。
+
+安装过程会检查增强文件是否齐全，复制整个 `plugins/visual-explainer`，按照仓库 `package.json` 中的版本范围安装 `playwright-core` 和匹配的 Chromium，再生成中文示例并执行真实浏览器检查。验证通过后才启用新 Skill；已有安装移至备份目录。安装失败会保留原安装，激活失败会尝试恢复备份，并输出日志路径。
+
+| 内容 | 默认位置 |
+| --- | --- |
+| Codex Skill | `%USERPROFILE%\.agents\skills\visual-explainer` |
+| 旧版本备份 | `%USERPROFILE%\.agents\skill-backups\` |
+| 安装日志、示例 HTML、检查报告和截图 | `%USERPROFILE%\.agents\visual-explainer-output\` 下本次运行目录 |
+
+每次更新源码后重新运行 `install.bat` 即可更新安装。示例业务验收保留 `not-run`，浏览器检查仅验证生成页面；实际项目仍需填入真实方案并执行对应验收。安装完成后，在 Codex 新对话中输入：
+
+```text
+使用 $visual-explainer 的软件方案模式，读取 references/software-design.md，
+根据当前项目生成中文方案 HTML，附架构、流程、时序、状态和数据图，
+并检查需求—规则—设计—验收的双向追踪关系。
+```
+
+自动化环境可以关闭结束暂停和自动打开示例，并指定隔离的安装根目录：
+
+```powershell
+.\install.bat -NoPause -NoOpen -AgentHome 'D:\temporary-agent-home'
+```
+
+`-AgentHome` 下仍采用 `skills\visual-explainer`、`skill-backups`、`visual-explainer-output` 布局。日常 Codex 使用默认路径即可。备份中的自定义文件保留在旧版本内，新安装以当前仓库源码为准；需要保留的规则应先提交到自己的 Fork。该安装入口面向 Codex Skill 与软件方案流程，其他宿主仍使用其原有集成入口。
 
 ## 合并上游
 
