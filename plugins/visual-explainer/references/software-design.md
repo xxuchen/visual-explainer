@@ -2,11 +2,30 @@
 
 ## 使用入口
 
-在用户要求软件方案、需求对齐、架构评审或交付验收，并需要需求到验收的追踪时使用此模式。输出中文 HTML 和图，保留可修改的 JSON 源及检查报告。日常解释、幻灯片、现有 visual plan 等继续使用原有模式。
+在用户要求软件方案、需求设计、架构方案、需求对齐、架构评审或交付验收时使用此模式，自动应用下述五项规则和需求到验收的追踪。输出中文 HTML 和图，保留可修改的 JSON 源及检查报告。日常解释、幻灯片、现有 visual plan 等继续使用原有模式。
 
 本模式覆盖通用 SKILL 的精简篇幅、字体和交付规则：完整呈现关键业务规则与异常路径；使用本地中文字体；使用本目录的 CLI 生成和检查。无需改写上游 kit、plan、Pi 或 MCP 实现。
 
-目录：① 五项规则　② 图的选择　③ 工作步骤　④ 命令与证据　⑤ 交付边界。
+目录：① 默认用法　② 五项规则　③ 图的选择　④ 工作步骤　⑤ 命令与证据　⑥ 交付边界。
+
+## 默认用法
+
+用户日常只需提供需求，例如：
+
+```text
+$visual-explainer 方案：为现有任务列表增加按状态筛选。
+```
+
+把下列约定作为此模式的默认值；用户明确指定的路径、范围、格式和回复详略优先。
+
+- **项目上下文**：读取当前业务项目相关代码、接口、数据库定义/迁移、测试和约束，按真实来源区分事实、假设和待确认事项。技能目录用于查阅规则和执行 CLI，输出目录相对业务项目根目录。
+- **交付位置**：写入 `docs/design/<name>.design.json`、`docs/design/<name>.html`、`docs/design/<name>.html.checks.json`；截图由 CLI 放在同名 `.html.screenshots/`。从需求选择简短、稳定的文件名，新方案避开无关文件；迭代既有方案先读原 JSON，保留路径和 ID。
+- **默认范围**：进行方案设计，修改范围限于本次方案产物。若用户明确授权实施，按其授权继续执行相应工作。
+- **方案内容**：应用五项规则，按实际需求选图，建立需求、规则、图、接口、数据和验收的追踪关系。完整分析及全部待确认事项放入 HTML，并保留可编辑的 JSON 来源。
+- **验证**：执行 `validate --phase design` 和 `render --browser`，修复结构及静态页面错误，尝试真实浏览器检查。浏览器缺失或受限时记录 `skipped` 和原因；新方案的业务验收默认 `not-run`，四类验证状态分别报告。
+- **聊天交付**：默认不超过 8 行，给出简短结论、影响决策的关键待确认事项、验证摘要和 HTML/JSON/检查报告三个文件链接或路径。完整方案保留在产物中；用户要求详细解释时按其要求展开。
+
+支持注册本目录命令的宿主也可以使用 `/generate-software-design <需求>`。在 Codex 中优先使用显式 `$visual-explainer 方案：<需求>`；命令注册能力由宿主决定。
 
 ## 五项规则
 
@@ -62,19 +81,19 @@ HTML、同名 `.checks.json` 和源码应一起交付。区分方案结构检查
 2. 从模板创建 JSON，删除示例业务内容并填入实际方案。逐项建立需求、规则、模型及验收关系。
 3. 根据上表绘图，复核正常/失败/重试/并发/超时/回滚路径，确定各项质量目标。
 4. 执行 `validate --phase design`，修复结构和引用错误。对 warnings 给出实际解释或消除对应问题。
-5. 执行 `render --browser`，查看生成页面和检查报告。浏览器可用时检查截图；发现问题改 JSON 或扩展渲染代码后重跑。环境不能运行浏览器时报告 `skipped`，保留可复查页面。
+5. 执行 `render --browser`，查看生成页面和检查报告。浏览器可用时检查截图；发现问题先修正方案 JSON 后重跑。若问题来自生成器，记录故障与受影响产物，按用户授权处理工具修复。环境不能运行浏览器时报告 `skipped`，保留可复查页面。
 6. 交付时给出 HTML、JSON、检查报告位置，以及关键未决事项和验证状态。用户已授权实施时继续完成实施；仅要求方案时等待实际业务决策。
 7. 实施完成后针对 AC 执行测试并记录回执，更新 `verification`，执行 `validate --phase delivery` 和 `render --phase delivery --require-browser`。
 
 ## 命令与证据
 
-以下命令在仓库根目录执行；复制安装时将前缀换为实际 skill 目录。Node >=20，初始化、建模、渲染和静态检查无需安装新依赖。
+以下命令在业务项目根目录执行；先将 `<skill-dir>` 替换为本技能 `SKILL.md` 所在的绝对目录，将示例 `order` 替换为本次方案名称。Node >=20，初始化、建模、渲染和静态检查无需安装新依赖。
 
 ```bash
-node plugins/visual-explainer/software-design/cli.mjs init output/order.design.json
+node "<skill-dir>/software-design/cli.mjs" init docs/design/order.design.json
 # 编辑 JSON：以真实项目资料替换示例内容
-node plugins/visual-explainer/software-design/cli.mjs validate output/order.design.json
-node plugins/visual-explainer/software-design/cli.mjs render output/order.design.json --out output/order.html --browser
+node "<skill-dir>/software-design/cli.mjs" validate docs/design/order.design.json --phase design
+node "<skill-dir>/software-design/cli.mjs" render docs/design/order.design.json --out docs/design/order.html --browser
 ```
 
 浏览器检查可使用环境中的 `playwright` 或 `playwright-core`；已安装的 Chromium 可通过 `--browser-executable <path>` 指定。`--browser` 遇到环境缺失会记录 skipped，`--require-browser` 会返回非零退出码。工具不自动下载浏览器。需要严格交付时安装 Playwright 及 Chromium，然后使用 `--require-browser`。输出浏览器截图置于 `<page.html>.screenshots/`。
@@ -82,7 +101,7 @@ node plugins/visual-explainer/software-design/cli.mjs render output/order.design
 显式记录一个真正的业务测试，例如项目已有的 Node 测试（其他语言可替换可执行文件和参数）：
 
 ```bash
-node plugins/visual-explainer/software-design/cli.mjs record output/order.design.json --acceptance AC-repeat --receipt evidence/repeat-001.json --cwd . -- node --test test/order-repeat.test.mjs
+node "<skill-dir>/software-design/cli.mjs" record docs/design/order.design.json --acceptance AC-repeat --receipt evidence/repeat-001.json --cwd . -- node --test test/order-repeat.test.mjs
 ```
 
 记录器使用 `shell:false`，命令作为独立参数执行，超时默认 120 秒，可用 `--timeout-ms` 调整。Windows 可直接使用 `node`、`python`、`java` 等可执行程序；脚本包装器如 `.cmd` 需要显式调用其解释器。运行失败也会留下回执。每次使用新回执路径，避免覆盖历史记录。
