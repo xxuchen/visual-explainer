@@ -23,39 +23,55 @@
 
 此版本仅增加文件系统 CLI/命令提示，不增加专用 MCP 工具或 Pi tool 名称。支持加载该 skill 并执行 Node 的 agent 可使用完整流程。宿主是否自动发现 slash 命令取决于现有插件集成；直接要求 agent 读取 `references/software-design.md` 同样可用。
 
-## Windows 自动安装
+## Windows 多 Agent 安装、升级与卸载
 
-使用完整仓库，安装入口位于根目录 `install.bat`。合并本 PR 前，在 GitHub Desktop 中切换到 `feat/software-design-rules`，点击 **Fetch origin / Pull origin**。例如仓库在 `D:\agent-tools\visual-explainer`，双击其中的 `install.bat`，或在 PowerShell 执行：
+要求原生 Windows、Node.js LTS 22+ 和 npm；无需 WSL 或管理员权限。使用完整 Fork 源码，在 GitHub Desktop 切换到 `feat/software-design-rules` 分支并 Pull 后操作。三脚本默认不打开浏览器。
+
+| 脚本 | 行为 |
+|---|---|
+| install.bat | 展示 Agent 菜单与安装状态，输入编号（如 1,8）、名称（如 codex,dsh）或 all，安装选中的 Agent。选中已登记项时更新该项。 |
+| reinstall.bat | 自动识别本机登记及有效所有权标记、旧版默认 Codex 安装，全量重装/升级；缺失的已登记目录会恢复。不自动 Pull 源码。 |
+| uninstall.bat | 自动列出全部已管理 Agent，确认后删除其完整 Skill、依赖和新版管理器备份；保留其他 Skill、业务项目及共享浏览器。 |
+
+支持标准全局目录（~ 代表 USERPROFILE；每个目录下安装 visual-explainer 文件夹）：
+
+| ID | Agent | Skill 根目录 |
+|---|---|---|
+| codex | Codex App / CLI | ~/.agents/skills |
+| cursor | Cursor | ~/.cursor/skills |
+| claude | Claude Code | ~/.claude/skills |
+| opencode | OpenCode | ~/.config/opencode/skills |
+| cline | Cline | ~/.cline/skills |
+| pi | Pi | ~/.pi/agent/skills |
+| copilot | GitHub Copilot | ~/.copilot/skills |
+| dsh | DeepSeek Harness | ~/.dsh/skills |
+| antigravity | Antigravity App / CLI | ~/.gemini/config/skills |
+
+这些是当前文档约定的默认本地目录；宿主自定义 home/config、项目内 Skill、远程环境和 marketplace/package 安装不由此工具管理。特别是 DSH_HOME 等自定义路径需要按宿主配置调整，不能假定默认目录会被读取。Cursor、OpenCode、DSH、Pi、Copilot 等可能发现共享目录中的同名 Skill，因此选择安装控制实际写入目录，而非限制其他 Agent 的发现权限。宿主的图片展示和快捷命令仍以实际版本为准。参考 [Cursor](https://cursor.com/docs/skills)、[OpenCode](https://opencode.ai/docs/skills/)、[DSH](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.zh.md)、[Antigravity](https://antigravity.google/docs/skills)、[VS Code](https://code.visualstudio.com/docs/agent-customization/agent-skills)、[Cline](https://github.com/cline/skills)。
+
+非交互调用示例（PowerShell，在仓库根目录）：
 
 ```powershell
-& 'D:\agent-tools\visual-explainer\install.bat'
+.\install.bat -Agents "codex,dsh,cursor" -NoPause
+.\install.bat -All -NoPause
+.\reinstall.bat -NoPause
+.\uninstall.bat -Yes -NoPause
+.\install.bat -List -NoPause
 ```
 
-前置环境：Windows、Node.js 22 或更高版本及随附的 npm。可从 [Node.js 官方下载页](https://nodejs.org/en/download) 安装受支持的 LTS 版本；安装后重新打开终端。脚本使用 Windows 自带的 PowerShell 5.1，支持从 PowerShell 7 启动；缺少运行环境时会给出具体提示。使用实际运行 Codex 的 Windows 用户执行，无需管理员权限或 WSL。
+登记文件：%USERPROFILE%\.visual-explainer-manager\installations.json。每份受管理 Skill 有独立所有权标记；登记丢失时可恢复标记，有成功旧版安装回执的默认 Codex 安装可自动接管。每次安装/重装只调用原 Windows 安装器一次，安装浏览器依赖、生成示例并在真实 Chromium 验证，通过后复制到选中目录并验证每个副本。替换前备份，失败恢复旧版本；逐 Agent 记录成功或失败，失败项返回非零退出码。已有未登记同名 Skill 会提示冲突并保留，拒绝覆盖或卸载；不会跟随文件系统链接。请关闭相关 Agent 后运行，结束后重启。
 
-安装过程会检查增强文件是否齐全，复制整个 `plugins/visual-explainer`，按照仓库 `package.json` 中的版本范围安装 `playwright-core` 和匹配的 Chromium，再生成中文示例并执行真实浏览器检查。验证通过后才启用新 Skill；已有安装移至备份目录。安装失败会保留原安装，激活失败会尝试恢复备份，并输出日志路径。
+新版备份和构建日志位于管理器目录。卸载清除受管理的有效安装、对应新版备份和登记；全部卸载后清理新版暂存与示例，留下空登记以供再次安装。旧安装器的历史备份、旧安装示例和首次接管旧版时的备份保留在发现目录之外（其中可能有用户定制）；共享 Chromium 缓存和 Node.js 不删除。手工/第三方安装不自动删除。安装器需要 Node.js；卸载无需 npm 下载或联网，但也需要 Node.js 执行。发生异常退出而遗留 operation.lock 时，确认没有安装进程后再手动移除锁文件。
 
-| 内容 | 默认位置 |
-| --- | --- |
-| Codex Skill | `%USERPROFILE%\.agents\skills\visual-explainer` |
-| 旧版本备份 | `%USERPROFILE%\.agents\skill-backups\` |
-| 安装日志、示例 HTML、检查报告和截图 | `%USERPROFILE%\.agents\visual-explainer-output\` 下本次运行目录 |
+高级测试使用 -ProfileRoot 指定隔离的用户目录，并在三个脚本中使用相同路径。旧版 -AgentHome 参数保留用于原单目标安装器回归及自定义单独安装，不加入新管理登记。
 
-每次更新源码后重新运行 `install.bat` 即可更新安装。示例业务验收保留 `not-run`，浏览器检查仅验证生成页面；实际项目仍需填入真实方案并执行对应验收。安装完成后，在 Codex 新对话中输入：
+日常在 Agent 中使用：要求使用 visual-explainer Skill 生成软件方案。Codex 仍可输入：
 
 ```text
 $visual-explainer 方案：在这里填写本次需求。
 ```
 
-软件方案模式默认读取当前业务项目，按六条表达规范（结论优先、证据分离、信息唯一、图文互补、增量表达、决策导向）与五项设计规则生成精简评审 HTML、可编辑 JSON 和检查报告。默认只展示必要结论，无最低字数，正文最多 800 非空白字符；证据和追踪关系保存在模型与检查报告。执行结构、重复长句提示、静态页面和浏览器检查，Agent 复核语义重复。需要完整技术视图时输入 `$visual-explainer 完整技术方案：具体需求`。默认工作范围为方案设计，聊天只返回简短结论、关键待确认事项、验证摘要和文件位置。需要调整时，在需求后补充新的目录、范围或输出要求即可。
-
-自动化环境可以关闭结束暂停和自动打开示例，并指定隔离的安装根目录：
-
-```powershell
-.\install.bat -NoPause -NoOpen -AgentHome 'D:\temporary-agent-home'
-```
-
-`-AgentHome` 下仍采用 `skills\visual-explainer`、`skill-backups`、`visual-explainer-output` 布局。日常 Codex 使用默认路径即可。备份中的自定义文件保留在旧版本内，新安装以当前仓库源码为准；需要保留的规则应先提交到自己的 Fork。该安装入口面向 Codex Skill 与软件方案流程，其他宿主仍使用其原有集成入口。
+六条表达规范、五项设计规则、精简/完整视图和对话预览继续生效。
 
 ## 合并上游
 

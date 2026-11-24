@@ -43,6 +43,8 @@ jobs:
           node scripts/check-ask.mjs
       - name: Extension and adapter checks
         run: node scripts/check-software-design.mjs
+      - name: Multi-agent lifecycle unit checks
+        run: node --test scripts/tests/windows-manager.test.mjs
       - name: Render the Chinese example offline
         run: node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design.json --out output/software-design.html
       - uses: actions/upload-artifact@v7
@@ -81,7 +83,7 @@ jobs:
 
   windows-install:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -90,6 +92,9 @@ jobs:
       - name: Install, update and reject an invalid install on Windows
         shell: powershell
         run: .\scripts\check-windows-install.ps1 -TestRoot "$env:RUNNER_TEMP\visual-explainer-install-check"
+      - name: Verify real multi-agent Windows lifecycle
+        shell: powershell
+        run: .\scripts\check-windows-manager.ps1 -ProfileRoot "$env:RUNNER_TEMP\ve multi agent profile"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
