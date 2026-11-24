@@ -68,6 +68,11 @@ jobs:
           sudo apt-get install -y fonts-noto-cjk
       - name: Verify the final HTML in Chromium
         run: node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design.json --out output/software-design.html --require-browser
+      - name: Verify compact review and chat preview in Chromium
+        run: |
+          node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design-compact.json --out output/software-design-compact.html --view compact --require-browser
+          node plugins/visual-explainer/software-design/chat-preview.mjs output/software-design-compact.html
+          VE_CHAT_PREVIEW_BROWSER=1 node --test plugins/visual-explainer/software-design/tests/compact.test.mjs plugins/visual-explainer/software-design/tests/chat-preview.test.mjs
       - uses: actions/upload-artifact@v7
         if: always()
         with:
