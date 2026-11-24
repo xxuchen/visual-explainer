@@ -16,6 +16,32 @@ export function reviewTextLength(spec) {
     ...reviewDiagrams(spec).flatMap((d) => [d.title, d.purpose])];
   return values.filter(plain).reduce((n, value) => n + [...value.replace(/\s/gu, '')].length, 0);
 }
+// A conservative text lint, not a semantic similarity test. Shared short labels,
+// titles, identifiers and ordinary recurring terms remain valid. Evidence fields
+// are intentionally excluded: model traceability may repeat information.
+export function reviewRepetitionWarnings(spec) {
+  const fields = [
+    ['$.summary', spec?.summary],
+    ...array(spec?.review?.points).flatMap((point, i) => object(point) ? [['$.review.points[' + i + '].text', point.text]] : []),
+    ...array(spec?.scope?.assumptions).map((value, i) => ['$.scope.assumptions[' + i + ']', value]),
+    ...reviewDiagrams(spec).map((d) => ['$.diagrams.' + d.id + '.purpose', d.purpose])
+  ];
+  const first = new Map(), warnings = [], reported = new Set();
+  for (const [path, value] of fields) {
+    if (!plain(value)) continue;
+    for (const sentence of value.split(/[。！？；\r\n]+|[.!?;](?=\s|$)/u)) {
+      const key = sentence.normalize('NFKC').replace(/\s/gu, '').replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, '');
+      if ([...key].length < 16) continue;
+      if (!first.has(key)) { first.set(key, path); continue; }
+      const dedupe = JSON.stringify([path,key]);
+      if (reported.has(dedupe)) continue;
+      reported.add(dedupe);
+      warnings.push({code:'review-repeat',path,message:'与 ' + first.get(key) + ' 存在重复的长句；请合并结论或确认保留该语境确有必要。'});
+    }
+  }
+  return warnings;
+}
+
 export function reviewIssues(spec, index) {
   const issues = [];
   const error = (code, path, message) => issues.push({code,path,message});

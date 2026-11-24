@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateDesign } from '../model.mjs';
-import { reviewTextLength } from '../review.mjs';
+import { reviewTextLength, reviewRepetitionWarnings } from '../review.mjs';
 import { inspectHtml } from '../inspect.mjs';
 import { exampleDesign } from './model-fixture.mjs';
 
@@ -82,4 +82,52 @@ test('invalid compact model cannot render by using full view',t=>{
   const spec=modelWithReview();spec.review.points[0].text='字'.repeat(801);writeFileSync(input,JSON.stringify(spec));
   assert.equal(run(['render',input,'--out',out,'--view','full'],root).status,1);
   assert.equal(existsSync(out),false);
+});
+
+test('repetition lint detects repeated long clauses without changing technical validation',()=>{
+  const spec=modelWithReview();
+  const sentence='相同幂等键且请求内容一致时返回原来的订单结果';
+  spec.summary=sentence+'。';
+  spec.review.points[0].text=sentence+'；同键不同内容返回冲突。';
+  spec.scope.assumptions=[sentence+'？'];
+  spec.diagrams.find(d=>d.id==='DIAG-state').purpose=sentence+'。';
+  const result=validateDesign(spec);
+  assert.equal(result.ok,true,JSON.stringify(result.errors));
+  const warnings=result.warnings.filter(w=>w.code==='review-repeat');
+  assert.deepEqual(warnings.map(w=>w.path),['$.review.points[0].text','$.scope.assumptions[0]','$.diagrams.DIAG-state.purpose']);
+  assert.ok(warnings.every(w=>w.message.includes('$.summary')));
+  assert.equal(result.traceability[0].diagramIds.length,2);
+});
+test('repetition lint normalizes whitespace and punctuation, including within one field',()=>{
+  const spec=minimal();
+  const phrase='选择有效的任务状态后重新查询有权限的任务列表';
+  spec.review.points[0].text=phrase+'。'+phrase.slice(0,4)+' '+phrase.slice(4)+'！';
+  const warnings=reviewRepetitionWarnings(spec);
+  assert.equal(warnings.length,1);
+  assert.equal(warnings[0].path,'$.review.points[0].text');
+});
+test('repetition lint allows common labels, distinct conditions and source evidence',()=>{
+  const spec=minimal();
+  assert.deepEqual(reviewRepetitionWarnings(spec),[]);
+  spec.summary='状态筛选。选择状态后只展示匹配当前状态的授权任务。';
+  spec.review.points[0].title='状态筛选';
+  spec.review.points[0].text='状态筛选。清空状态后恢复当前用户的所有授权任务。';
+  spec.rules[0].source=spec.summary;
+  spec.scope.assumptions=['实际角色授权范围待确认'];
+  assert.deepEqual(reviewRepetitionWarnings(spec),[]);
+  assert.doesNotThrow(()=>reviewRepetitionWarnings({summary:42,review:{points:[null,false,{text:[]}],diagramIds:[{}]},scope:{assumptions:[null]}}));
+});
+test('CLI exposes repetition warnings in checked artifacts without duplicating evidence in compact HTML',t=>{
+  const root=workspace(t),input=join(root,'model.json'),out=join(root,'review.html');
+  const spec=minimal();
+  const text='筛选条件发生变化时任务列表返回符合权限的结果';
+  spec.summary=text+'。';
+  spec.review.points[0].text=text+'。';
+  spec.rules[0].source='PRIVATE-SOURCE-EXAMPLE';
+  writeFileSync(input,JSON.stringify(spec));
+  const report=good(run(['render',input,'--out',out,'--view','compact'],root));
+  assert.ok(report.design.warnings.some(w=>w.code==='review-repeat'));
+  assert.ok(JSON.parse(readFileSync(out+'.checks.json','utf8')).design.warnings.some(w=>w.code==='review-repeat'));
+  assert.doesNotMatch(readFileSync(out,'utf8'),/PRIVATE-SOURCE-EXAMPLE/);
+  assert.equal(readFileSync(input,'utf8'),JSON.stringify(spec));
 });

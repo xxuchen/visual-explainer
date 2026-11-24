@@ -1,5 +1,5 @@
 /** Mechanical consistency checks for the opt-in software design profile. No execution or I/O. */
-import { reviewIssues } from './review.mjs';
+import { reviewIssues, reviewRepetitionWarnings } from './review.mjs';
 
 const COLLECTIONS = {
   terms: "TERM", components: "COMP", requirements: "REQ", rules: "BR", data: "DATA",
@@ -317,7 +317,10 @@ export function validateDesign(spec, { phase = "design", evidence = new Map() } 
     traceability.push(row);
     if (!row.diagramIds.length && !row.apiIds.length && !row.dataIds.length && !(compact && row.componentIds.length)) error("implementation-coverage", pathOf(req), `${req.id} 的业务规则未关联${compact ? "组件、" : ""}图、接口或数据设计。`);
   }
-  if (compact) errors.push(...reviewIssues(spec, index));
+  if (compact) {
+    errors.push(...reviewIssues(spec, index));
+    warnings.push(...reviewRepetitionWarnings(spec));
+  }
   if (phase === "delivery") {
     const requiredAcceptance = new Set(records.requirements.filter((r) => r.priority === "must").flatMap((r) => list(r.acceptanceIds)));
     for (const q of records.quality) list(q.acceptanceIds).forEach((a) => requiredAcceptance.add(a));
