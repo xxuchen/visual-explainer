@@ -23,7 +23,8 @@ $visual-explainer 方案：为现有任务列表增加按状态筛选。
 - **默认范围**：进行方案设计，修改范围限于本次方案产物。若用户明确授权实施，按其授权继续执行相应工作。
 - **方案内容**：应用五项规则，按实际需求选图，建立需求、规则、图、接口、数据和验收的追踪关系。完整分析及全部待确认事项放入 HTML，并保留可编辑的 JSON 来源。
 - **验证**：执行 `validate --phase design` 和 `render --browser`，修复结构及静态页面错误，尝试真实浏览器检查。浏览器缺失或受限时记录 `skipped` 和原因；新方案的业务验收默认 `not-run`，四类验证状态分别报告。
-- **聊天交付**：默认不超过 8 行，给出简短结论、影响决策的关键待确认事项、验证摘要和 HTML/JSON/检查报告三个文件链接或路径。完整方案保留在产物中；用户要求详细解释时按其要求展开。
+- **对话预览（默认）**：在最终 HTML 的结构、静态和浏览器检查全部通过后，运行本技能 `software-design/chat-preview.mjs`，从当前 HTML 截取一张摘要图及最多两张不同类型的关键设计图，优先流程图和上下文图。图片保存在同名 `.html.screenshots/` 目录，文件名包含图片内容摘要；宽度或高度超限的图保留在完整 HTML 中，避免缩成难以阅读的长图。只使用本次命令返回的 `images`，不要引用旧图或整页长截图。用户明确不需要预览时跳过此步骤。
+- **聊天交付**：默认将本次预览结果中 `images[].markdown` 的每一项作为独立的 Markdown 图片直接写进最终回复（不要放进代码块，也不要仅使用读取图片的工具调用），另给 HTML/JSON/检查报告三个文件链接或路径。文字仍默认不超过 8 行，包含简短结论、关键待确认事项和验证摘要。对话中展示的是静态 PNG；完整方案及可操作交互仍在 HTML。默认不自动打开浏览器。预览状态为 `partial` 时仅展示返回的有效图片；`skipped` 或 `failed` 时简要说明原因并保留 HTML 链接。宿主不支持本地图片渲染时提供对应 PNG 文件链接；不启动 HTTP 服务、不上传项目图片、不声称已成功显示。预览生成状态不等于业务验收通过。用户要求详细解释时按其要求展开。
 
 支持注册本目录命令的宿主也可以使用 `/generate-software-design <需求>`。在 Codex 中优先使用显式 `$visual-explainer 方案：<需求>`；命令注册能力由宿主决定。
 
@@ -82,7 +83,7 @@ HTML、同名 `.checks.json` 和源码应一起交付。区分方案结构检查
 3. 根据上表绘图，复核正常/失败/重试/并发/超时/回滚路径，确定各项质量目标。
 4. 执行 `validate --phase design`，修复结构和引用错误。对 warnings 给出实际解释或消除对应问题。
 5. 执行 `render --browser`，查看生成页面和检查报告。浏览器可用时检查截图；发现问题先修正方案 JSON 后重跑。若问题来自生成器，记录故障与受影响产物，按用户授权处理工具修复。环境不能运行浏览器时报告 `skipped`，保留可复查页面。
-6. 交付时给出 HTML、JSON、检查报告位置，以及关键未决事项和验证状态。用户已授权实施时继续完成实施；仅要求方案时等待实际业务决策。
+6. 按默认对话预览规则执行 `node "<skill-dir>/software-design/chat-preview.mjs" "<实际 HTML 路径>"`，如渲染时指定了 `--browser-executable`，此处沿用。根据实际结果内嵌 PNG 并交付 HTML、JSON、检查报告位置、关键未决事项和验证状态。用户已授权实施时继续完成实施；仅要求方案时等待实际业务决策。
 7. 实施完成后针对 AC 执行测试并记录回执，更新 `verification`，执行 `validate --phase delivery` 和 `render --phase delivery --require-browser`。
 
 ## 命令与证据
@@ -94,6 +95,7 @@ node "<skill-dir>/software-design/cli.mjs" init docs/design/order.design.json
 # 编辑 JSON：以真实项目资料替换示例内容
 node "<skill-dir>/software-design/cli.mjs" validate docs/design/order.design.json --phase design
 node "<skill-dir>/software-design/cli.mjs" render docs/design/order.design.json --out docs/design/order.html --browser
+node "<skill-dir>/software-design/chat-preview.mjs" docs/design/order.html
 ```
 
 浏览器检查可使用环境中的 `playwright` 或 `playwright-core`；已安装的 Chromium 可通过 `--browser-executable <path>` 指定。`--browser` 遇到环境缺失会记录 skipped，`--require-browser` 会返回非零退出码。工具不自动下载浏览器。需要严格交付时安装 Playwright 及 Chromium，然后使用 `--require-browser`。输出浏览器截图置于 `<page.html>.screenshots/`。
