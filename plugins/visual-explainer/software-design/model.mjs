@@ -1,4 +1,6 @@
 /** Mechanical consistency checks for the opt-in software design profile. No execution or I/O. */
+import { reviewIssues } from './review.mjs';
+
 const COLLECTIONS = {
   terms: "TERM", components: "COMP", requirements: "REQ", rules: "BR", data: "DATA",
   states: "STATE", transitions: "TR", apis: "API", diagrams: "DIAG", acceptance: "AC",
@@ -32,6 +34,7 @@ export function validateDesign(spec, { phase = "design", evidence = new Map() } 
   const warn = (code, path, message) => warnings.push({ code, path, message });
   const result = () => ({ ok: errors.length === 0, errors, warnings, traceability });
   if (!isObject(spec)) { error("shape", "$", "方案必须是 JSON 对象。"); return result(); }
+  const compact = has(spec, 'review');
   if (!["design", "delivery"].includes(phase)) error("phase", "$", "phase 必须为 design 或 delivery。");
   const str = (value, path) => { if (!text(value)) error("required-text", path, "必须填写非空文本。"); };
   const strings = (value, path, nonempty = false) => {
@@ -49,14 +52,14 @@ export function validateDesign(spec, { phase = "design", evidence = new Map() } 
   if (spec.language !== "zh-CN") error("language", "$.language", "此方案模式使用 language: zh-CN。");
   for (const [section, fields] of Object.entries({ scope: ["goals", "in", "out", "assumptions"], delivery: ["implementation", "migration", "rollback", "monitoring"] })) {
     if (!isObject(spec[section])) error("shape", `$.${section}`, "必须是对象。");
-    else for (const field of fields) strings(spec[section][field], `$.${section}.${field}`, !["out", "assumptions"].includes(field));
+    else for (const field of fields) strings(spec[section][field], `$.${section}.${field}`, !["out", "assumptions"].includes(field) && !(compact && section === "delivery" && field !== "implementation"));
   }
   const records = {}, paths = new Map(), types = new Map(), index = new Map();
   if (text(spec.id)) { index.set(spec.id, spec); paths.set(spec.id, "$"); types.set(spec.id, "DESIGN"); }
   for (const [key, prefix] of Object.entries(COLLECTIONS)) {
     records[key] = [];
     if (!Array.isArray(spec[key])) { error("array", `$.${key}`, "必须是数组；没有此概念时填写空数组。"); continue; }
-    if (REQUIRED_COLLECTIONS.has(key) && !spec[key].length) error("required-items", `$.${key}`, "至少填写一项。");
+    if (REQUIRED_COLLECTIONS.has(key) && (!compact || ["components","requirements","rules","acceptance"].includes(key)) && !spec[key].length) error("required-items", `$.${key}`, "至少填写一项。");
     spec[key].forEach((item, i) => {
       const path = `$.${key}[${i}]`;
       if (!isObject(item)) { error("shape", path, "必须是对象。"); return; }
@@ -310,9 +313,11 @@ export function validateDesign(spec, { phase = "design", evidence = new Map() } 
       dataIds: records.data.filter((d) => linked.has(d.id)).map((d) => d.id),
       acceptanceIds: list(req.acceptanceIds).filter((v) => types.get(v) === "AC")
     };
+    if (compact) row.componentIds = records.components.filter((c) => linked.has(c.id)).map((c) => c.id);
     traceability.push(row);
-    if (!row.diagramIds.length && !row.apiIds.length && !row.dataIds.length) error("implementation-coverage", pathOf(req), `${req.id} 的业务规则未关联图、接口或数据设计。`);
+    if (!row.diagramIds.length && !row.apiIds.length && !row.dataIds.length && !(compact && row.componentIds.length)) error("implementation-coverage", pathOf(req), `${req.id} 的业务规则未关联${compact ? "组件、" : ""}图、接口或数据设计。`);
   }
+  if (compact) errors.push(...reviewIssues(spec, index));
   if (phase === "delivery") {
     const requiredAcceptance = new Set(records.requirements.filter((r) => r.priority === "must").flatMap((r) => list(r.acceptanceIds)));
     for (const q of records.quality) list(q.acceptanceIds).forEach((a) => requiredAcceptance.add(a));

@@ -85,8 +85,7 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/term"
-      },
-      "minItems": 1
+      }
     },
     "components": {
       "type": "array",
@@ -137,8 +136,7 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/diagram"
-      },
-      "minItems": 1
+      }
     },
     "acceptance": {
       "type": "array",
@@ -151,22 +149,19 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/decision"
-      },
-      "minItems": 1
+      }
     },
     "risks": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/risk"
-      },
-      "minItems": 1
+      }
     },
     "quality": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/quality"
-      },
-      "minItems": 1
+      }
     },
     "delivery": {
       "type": "object",
@@ -188,25 +183,72 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/text"
-          },
-          "minItems": 1
+          }
         },
         "rollback": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/text"
-          },
-          "minItems": 1
+          }
         },
         "monitoring": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/text"
-          },
-          "minItems": 1
+          }
         }
       },
       "additionalProperties": true
+    },
+    "review": {
+      "type": "object",
+      "description": "Optional bounded review view. When present, compact is the default presentation; full rendering remains available.",
+      "required": [
+        "points",
+        "diagramIds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": [
+              "title",
+              "text",
+              "refs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "$ref": "#/$defs/text"
+              },
+              "text": {
+                "$ref": "#/$defs/text"
+              },
+              "refs": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "diagramIds": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DIAG-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          }
+        }
+      }
     }
   },
   "additionalProperties": true,
@@ -1161,5 +1203,48 @@
       },
       "additionalProperties": true
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "required": [
+            "review"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "terms": {
+            "minItems": 1
+          },
+          "diagrams": {
+            "minItems": 1
+          },
+          "decisions": {
+            "minItems": 1
+          },
+          "risks": {
+            "minItems": 1
+          },
+          "quality": {
+            "minItems": 1
+          },
+          "delivery": {
+            "properties": {
+              "migration": {
+                "minItems": 1
+              },
+              "rollback": {
+                "minItems": 1
+              },
+              "monitoring": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

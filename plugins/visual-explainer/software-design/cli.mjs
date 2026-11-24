@@ -6,13 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { validateDesign } from './model.mjs';
 import { verifyEvidence, recordEvidence } from './evidence.mjs';
 import { renderDesignSource } from './render.mjs';
+import { renderCompactSource } from './compact.mjs';
+import { reviewTextLength } from './review.mjs';
 import { renderWithUpstream } from './upstream.mjs';
 import { inspectHtml, inspectBrowser } from './inspect.mjs';
 
 const usage = `Software design profile (Node >=20)
-  init <design.json>
+  init <design.json> [--view compact|full]
   validate <design.json> [--phase design|delivery]
-  render <design.json> --out <page.html> [--phase design|delivery] [--browser | --require-browser] [--browser-executable <path>]
+  render <design.json> --out <page.html> [--view compact|full] [--phase design|delivery] [--browser | --require-browser] [--browser-executable <path>]
   inspect <page.html> [--spec <design.json>] [--browser | --require-browser] [--browser-executable <path>]
   record <design.json> --acceptance AC-id --receipt evidence/run.json [--cwd <dir>] [--timeout-ms <n>] -- <executable> <args...>
 Paths for receipt and its log are relative to the design JSON. record never edits that JSON.
@@ -25,7 +27,7 @@ function parse(args) {
   if (!['init', 'validate', 'render', 'inspect', 'record'].includes(command)) throw new Error(`Unknown command: ${command}`);
   const input = args.shift();
   if (!input || input.startsWith('--')) throw new Error('A source file path is required.');
-  const allowed = { init: [], validate: ['phase'], render: ['out', 'phase', 'browser', 'require-browser', 'browser-executable'], inspect: ['spec', 'browser', 'require-browser', 'browser-executable'], record: ['acceptance', 'receipt', 'cwd', 'timeout-ms'] }[command];
+  const allowed = { init: ['view'], validate: ['phase'], render: ['out', 'view', 'phase', 'browser', 'require-browser', 'browser-executable'], inspect: ['spec', 'browser', 'require-browser', 'browser-executable'], record: ['acceptance', 'receipt', 'cwd', 'timeout-ms'] }[command];
   const flags = {};
   let argv = [];
   while (args.length) {
@@ -37,6 +39,7 @@ function parse(args) {
     if (['browser', 'require-browser'].includes(key)) flags[key] = true;
     else { const value = args.shift(); if (!value || value.startsWith('--')) throw new Error(`Missing value for ${arg}`); flags[key] = value; }
   }
+  if (flags.view && !['compact','full'].includes(flags.view)) throw new Error('view must be compact or full.');
   if (flags.phase && !['design', 'delivery'].includes(flags.phase)) throw new Error('phase must be design or delivery.');
   if (command === 'render' && !flags.out) throw new Error('render requires --out <page.html>.');
   if (command === 'record' && (!flags.acceptance || !flags.receipt || !argv.length)) throw new Error('record requires --acceptance, --receipt and an executable after --.');
@@ -69,7 +72,7 @@ export async function main(args = process.argv.slice(2)) {
   if (opts.help) { console.log(usage); return 0; }
   const { command, input, flags, argv } = opts;
   if (command === 'init') {
-    const example = readFileSync(new URL('../templates/software-design.json', import.meta.url), 'utf8');
+    const example = readFileSync(new URL(flags.view === 'compact' ? '../templates/software-design-compact.json' : '../templates/software-design.json', import.meta.url), 'utf8');
     mkdirSync(dirname(input), { recursive: true });
     writeFileSync(input, example, { flag: 'wx' });
     emit({ profile: 'software-design/v1', status: 'created', path: input, next: 'Replace example requirements and assumptions with project evidence before rendering.' });
@@ -94,12 +97,14 @@ export async function main(args = process.argv.slice(2)) {
   const phase = flags.phase ?? 'design';
   const validation = validationFor(spec, input, phase);
   if (command === 'validate' || !validation.ok) { emit(validation); return validation.ok ? 0 : 1; }
+  const view = flags.view ?? (Object.hasOwn(spec, 'review') ? 'compact' : 'full');
+  if (view === 'compact' && !spec.review) throw new Error('Compact view requires review.points and review.diagramIds. See the compact template.');
   const out = resolve(flags.out);
   if (!/\.html?$/i.test(out)) throw new Error('--out must name an HTML file.');
   if (out === input || (existsSync(out) && realpathSync(out) === realpathSync(input))) throw new Error('HTML output must differ from the JSON source.');
   const checksPath = `${out}.checks.json`;
   validation.pageChecks = { static: { status: 'not-run' }, browser: { status: 'not-run' } };
-  const makePage = () => renderWithUpstream(renderDesignSource(spec, validation));
+  const makePage = () => renderWithUpstream(view === 'compact' ? renderCompactSource(spec, validation) : renderDesignSource(spec, validation));
   let html = makePage();
   let staticCheck = inspectHtml(html, { spec });
   if (!staticCheck.ok) { emit({ profile: 'software-design/v1', ok: false, validation, static: staticCheck }); return 1; }
@@ -123,7 +128,9 @@ export async function main(args = process.argv.slice(2)) {
     }
   }
   const ok = validation.ok && staticCheck.ok && browserOK(browser, flags);
-  const report = { profile: 'software-design/v1', ok, phase, source: input, output: out, htmlSha256: digest(html),
+  const report = { profile: 'software-design/v1', ok, phase, view, source: input, output: out, htmlSha256: digest(html),
+    sourceSha256: digest(readFileSync(input)), traceability: validation.traceability,
+    ...(view === 'compact' ? { review: { textChars: reviewTextLength(spec), points: spec.review.points, diagramIds: spec.review.diagramIds } } : {}),
     design: { status: validation.ok ? 'passed' : 'failed', errors: validation.errors, warnings: validation.warnings },
     business: Object.fromEntries((spec.acceptance ?? []).map((a) => [a.id, a.verification.status])),
     static: { status: staticCheck.ok ? 'passed' : 'failed', ...staticCheck }, browser };

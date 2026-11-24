@@ -14,7 +14,7 @@ Turn what you know into something a person understands in ten seconds. The defau
 
 ## Software design profile (optional)
 
-For software design requests, including `$visual-explainer 方案：<需求>`, “软件方案”, “需求设计”, “架构方案”, or `/generate-software-design`, follow `references/software-design.md` and its defaults. Inspect the current business project, produce a complete Chinese HTML proposal with diagrams, source JSON and checks in the project's `docs/design/`, and keep the chat reply brief. Default to design work; honor explicit user changes to scope or delivery. This profile's delivery, language and verification rules take precedence over the generic page rules below for that task. Other commands keep their existing workflow.
+For software design requests, including `$visual-explainer 方案：<需求>`, “软件方案”, “需求设计”, “架构方案”, or `/generate-software-design`, follow `references/software-design.md` and its defaults. Inspect the current business project, default to a compact Chinese review HTML (at most 800 prose characters, 0–2 key diagrams) with the checked technical model and traceability in source JSON and checks in the project's `docs/design/`. Use the full technical view only when explicitly requested. Keep the chat reply brief. Default to design work; honor explicit user changes to scope or delivery. This profile's delivery, language and verification rules take precedence over the generic page rules below for that task. Other commands keep their existing workflow.
 
 ## Deliver
 

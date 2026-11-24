@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "DESIGN-list-filter",
+  "title": "任务列表状态筛选",
+  "language": "zh-CN",
+  "summary": "在现有任务列表增加状态筛选，保留原有权限及分页规则。",
+  "scope": {
+    "goals": [
+      "按状态查看任务"
+    ],
+    "in": [
+      "任务列表筛选"
+    ],
+    "out": [
+      "新增状态或修改任务生命周期"
+    ],
+    "assumptions": []
+  },
+  "terms": [],
+  "components": [
+    {
+      "id": "COMP-list",
+      "title": "任务列表",
+      "kind": "service",
+      "responsibility": "展示授权范围内任务，支持状态筛选"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REQ-filter",
+      "title": "状态筛选",
+      "text": "用户可按现有任务状态筛选列表。",
+      "priority": "must",
+      "ruleIds": [
+        "BR-filter"
+      ],
+      "acceptanceIds": [
+        "AC-filter"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "BR-filter",
+      "title": "筛选与分页",
+      "text": "选择现有状态时重置到第一页；清空筛选恢复原列表；保持原权限约束。",
+      "basis": "decision",
+      "source": "示例需求；实际使用时替换为项目来源。",
+      "refs": [
+        "COMP-list"
+      ]
+    }
+  ],
+  "data": [],
+  "states": [],
+  "transitions": [],
+  "apis": [],
+  "diagrams": [],
+  "acceptance": [
+    {
+      "id": "AC-filter",
+      "title": "筛选结果",
+      "given": "存在不同状态的授权任务",
+      "when": "选择状态并清空筛选",
+      "then": "仅展示匹配授权任务，页码重置；清空恢复原列表。",
+      "requirementIds": [
+        "REQ-filter"
+      ],
+      "refs": [
+        "BR-filter",
+        "COMP-list"
+      ],
+      "verification": {
+        "status": "not-run"
+      }
+    }
+  ],
+  "decisions": [],
+  "risks": [],
+  "quality": [],
+  "delivery": {
+    "implementation": [
+      "复用现有状态及查询条件，增加筛选入口和测试。"
+    ],
+    "migration": [],
+    "rollback": [],
+    "monitoring": []
+  },
+  "review": {
+    "points": [
+      {
+        "title": "列表交互",
+        "text": "选择状态后刷新列表并回到第一页；清空恢复原列表。仅展示授权范围内的任务。",
+        "refs": [
+          "REQ-filter",
+          "BR-filter",
+          "COMP-list"
+        ]
+      }
+    ],
+    "diagramIds": []
+  }
+}

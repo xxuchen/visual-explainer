@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import { delimiter, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { reviewDiagrams, reviewTextLength, REVIEW_LIMIT } from "./review.mjs";
+
 const COLLECTIONS = ["terms", "components", "requirements", "rules", "data", "states", "transitions", "apis", "diagrams", "acceptance", "decisions", "risks", "quality"];
 const VOID = new Set("area base br col embed hr img input link meta param source track wbr".split(" "));
 const RAW = new Set(["script", "style", "textarea", "title"]);
@@ -150,10 +152,30 @@ export function inspectHtml(html, { spec } = {}) {
     const box = (svg.attrs.viewbox ?? "").trim().split(/[\s,]+/).map(Number);
     if (box.length !== 4 || box.some((n) => !Number.isFinite(n)) || box[2] <= 0 || box[3] <= 0) error("SVG_VIEWBOX", `${location(svg)} needs a positive finite viewBox.`);
   }
+  const compact = roots[0]?.attrs["data-sd-view"] === "compact";
+  if (compact) {
+    const points = nodes.filter((n) => Object.hasOwn(n.attrs, "data-sd-review-item"));
+    const pending = nodes.filter((n) => Object.hasOwn(n.attrs, "data-sd-review-pending"));
+    if (points.length < 1 || points.length > 6 || pending.length > 5 || figures.length > 2)
+      error("COMPACT_LIMIT", "Compact review exceeds its point, pending or diagram limits.");
+    if (ids.has("sd-source") || ids.has("sd-traceability") || nodes.some((n)=>n.name==="details"))
+      error("COMPACT_APPENDIX", "Compact view must not contain a hidden full appendix or duplicated model.");
+    if (spec && typeof spec === "object") {
+      if (!Array.isArray(spec.review?.points) || !Array.isArray(spec.review?.diagramIds))
+        error("COMPACT_SOURCE", "Compact view requires a review model.");
+      else {
+        if (reviewTextLength(spec) > REVIEW_LIMIT) error("COMPACT_LENGTH", "Compact source exceeds the review text budget.");
+        if (points.length !== spec.review.points.length || spec.review.points.some((p,i)=>!points.some(n=>n.attrs["data-sd-review-item"]===String(i) && n.attrs["data-sd-review-refs"]===p.refs?.join(" "))))
+          error("COMPACT_POINTS", "Review point IDs/references do not match the source.");
+        if (pending.length !== (spec.scope?.assumptions?.length ?? 0) || pending.some((n,i)=>n.attrs["data-sd-review-pending"]!==String(i)))
+          error("COMPACT_PENDING", "Pending items do not match the source.");
+      }
+    }
+  }
   if (spec && typeof spec === "object") {
-    const expected = [spec.id, ...COLLECTIONS.flatMap((key) => Array.isArray(spec[key]) ? spec[key].map((item) => item?.id) : [])].filter(Boolean);
+    const diagrams = compact ? reviewDiagrams(spec) : (Array.isArray(spec.diagrams) ? spec.diagrams : []);
+    const expected = (compact ? [spec.id, ...diagrams.map(d=>d.id)] : [spec.id, ...COLLECTIONS.flatMap((key) => Array.isArray(spec[key]) ? spec[key].map((item) => item?.id) : [])]).filter(Boolean);
     for (const id of expected) if (!ids.has(id)) error("MISSING_SPEC_ITEM", `The page omits source item ${id}.`);
-    const diagrams = Array.isArray(spec.diagrams) ? spec.diagrams : [];
     if (figures.length !== diagrams.length) error("DIAGRAM_COUNT", `Expected ${diagrams.length} diagrams, found ${figures.length}.`);
     for (const diagram of diagrams) {
       const figure = figures.find((n) => n.attrs.id === diagram.id);
@@ -220,6 +242,12 @@ export async function inspectBrowser(path, { required = false, executablePath, a
         });
         const layoutErrors = await page.evaluate(() => {
           const found = [];
+          if (document.documentElement.dataset.sdView === "compact") {
+            const prose = [...document.querySelectorAll("[data-sd-review-text]")];
+            const count = prose.reduce((n, el)=>n + [...el.textContent.replace(/\s/gu, "")].length, 0);
+            if (count > 800) found.push("Compact review exceeds 800 visible prose characters.");
+            if (prose.some((el)=>!el.getBoundingClientRect().height)) found.push("Compact review contains hidden prose.");
+          }
           if (Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) > innerWidth + 2) found.push("Document overflows the viewport horizontally; put wide figures/tables in a scroll container.");
           const transformedBox = (element, reference) => {
             const b = element.getBBox(), own = element.getCTM(), outer = reference.getCTM();
