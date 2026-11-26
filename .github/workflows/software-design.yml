@@ -72,6 +72,7 @@ jobs:
         run: node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design.json --out output/software-design.html --require-browser
       - name: Verify compact review and chat preview in Chromium
         run: |
+          node plugins/visual-explainer/software-design/cli.mjs deliver output/software-design.html --spec plugins/visual-explainer/templates/software-design.json --view full
           node plugins/visual-explainer/software-design/cli.mjs render plugins/visual-explainer/templates/software-design-compact.json --out output/software-design-compact.html --view compact --require-browser
           node plugins/visual-explainer/software-design/cli.mjs deliver output/software-design-compact.html --spec plugins/visual-explainer/templates/software-design-compact.json --view compact
           node plugins/visual-explainer/software-design/chat-preview.mjs output/software-design-compact.html

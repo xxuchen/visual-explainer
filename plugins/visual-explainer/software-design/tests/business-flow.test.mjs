@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync,readFileSync,writeFileSync,rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -77,6 +78,15 @@ test('delivery gate requires enhanced canonical artifact and fresh model/report'
   const original=readFileSync(html,'utf8');
   writeFileSync(html,original.replace('展示匹配的授权任务','直接取消订单'));
   assert.equal(run(args,root).status,1);
+  // Even recomputing the report hash cannot make noncanonical content pass.
+  const altered=original.replace('关键规则与约束','完全不同的内容');
+  writeFileSync(html,altered);
+  const forged={...report,htmlSha256:createHash('sha256').update(altered).digest('hex')};
+  writeFileSync(reportPath,JSON.stringify(forged));
+  const rejected=run(args,root);
+  assert.equal(rejected.status,1);
+  assert.ok(JSON.parse(rejected.stdout).errors.some(e=>e.includes('canonical')));
+  writeFileSync(reportPath,JSON.stringify(report));
   writeFileSync(html,original);
   s.summary+=' 修改';writeFileSync(source,JSON.stringify(s));
   assert.equal(run(args,root).status,1);
@@ -99,4 +109,40 @@ test('malformed business path inputs return errors without throwing',()=>{
     const s=minimal();s.businessFlow=v;
     assert.doesNotThrow(()=>validateDesign(s));assert.equal(validateDesign(s).ok,false);
   }
+});
+
+test('two independent business objects advance in one path; a false final state is rejected',()=>{
+  const s=stateful(), first=s.businessFlow.scenarios[0], retry=s.businessFlow.scenarios[1];
+  s.terms.push({id:'TERM-funds',name:'资金',definition:'独立于订单的资金状态'});
+  s.data.push({id:'DATA-funds',title:'资金',termId:'TERM-funds',lifecycleField:'status',fields:[{name:'status',type:'enum',required:true,description:'资金状态'}],constraints:['单独跟踪']});
+  s.states.push({id:'STATE-funds-unheld',dataId:'DATA-funds',name:'未预留',initial:true,terminal:false},{id:'STATE-funds-held',dataId:'DATA-funds',name:'已预留',initial:false,terminal:false});
+  s.transitions.push({id:'TR-hold',title:'预留资金',from:'STATE-funds-unheld',to:'STATE-funds-held',event:'保存订单',guard:'资金可用',action:'登记预留',ruleIds:['BR-submit']});
+  s.acceptance[0].refs.push('TR-hold');
+  first.steps.push({actorId:'COMP-order',action:'登记预留',ruleIds:['BR-submit'],apiIds:[],transitionIds:['TR-hold']});
+  first.startStateIds.push('STATE-funds-unheld');first.endStateIds.push('STATE-funds-held');
+  retry.startStateIds.push('STATE-funds-held');retry.endStateIds.push('STATE-funds-held');
+  s.diagrams.push({id:'DIAG-funds',title:'资金生命周期',type:'state',phase:'target',purpose:'预留状态独立',nodes:[{id:'none',ref:'STATE-funds-unheld'},{id:'held',ref:'STATE-funds-held'}],edges:[{id:'hold',from:'none',to:'held',transitionId:'TR-hold'}]});
+  s.diagrams[s.diagrams.findIndex(d=>d.type==='flow')]=scenarioDiagram(s,'SCN-submit');
+  const r=validateDesign(s);
+  assert.equal(r.ok,true,JSON.stringify(r.errors));
+  first.endStateIds[1]='STATE-funds-unheld';
+  assert.ok(validateDesign(s).errors.some(e=>e.code==='logic-state-result'));
+});
+test('identical entry conditions cannot describe two competing paths',()=>{
+  reject(s=>{
+    const duplicate=structuredClone(s.businessFlow.scenarios[0]);
+    duplicate.id='SCN-competing';duplicate.result='rejected';duplicate.outcome='拒绝订单';
+    s.businessFlow.scenarios.push(duplicate);
+  },'logic-ambiguous-branch');
+});
+test('full starter includes checked business paths, all five diagram types and no stale view',t=>{
+  const root=mkdtempSync(join(tmpdir(),'ve-full-logic-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const source=join(root,'full.json'),html=join(root,'full.html');
+  good(run(['init',source,'--view','full'],root));
+  const model=JSON.parse(readFileSync(source,'utf8'));
+  assert.equal(model.diagrams.length,5);
+  const report=good(run(['render',source,'--out',html,'--view','full','--browser','--browser-executable',join(root,'no-browser')],root));
+  assert.equal(report.logic.status,'passed');
+  good(run(['deliver',html,'--spec',source,'--view','full'],root));
+  assert.equal(run(['deliver',html,'--spec',source,'--view','compact'],root).status,1);
 });

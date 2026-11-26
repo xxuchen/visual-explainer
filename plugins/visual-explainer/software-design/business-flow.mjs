@@ -24,7 +24,7 @@ export function businessRows(spec,{compact=true}={}) {
   });
 }
 export function businessReviewText(spec){
-  return businessRows(spec).flatMap(r=>[r.phase,r.title,r.entry,r.steps,r.outcome,r.states]);
+  return businessRows(spec).flatMap(r=>[r.phase+' · '+r.title,r.entry,r.steps,r.outcome,r.states]);
 }
 export function renderBusinessRows(spec,{compact=true}={}){
   if(!obj(spec?.businessFlow))return '';
@@ -52,6 +52,7 @@ export function validateBusinessFlow(spec,index){
   if(!obj(model))return [{code:'logic-shape',path:'$.businessFlow',message:'业务场景模型必须为对象。'}];
   if(model.version!==1)error('logic-version','$.businessFlow.version','业务场景模型 version 必须为 1。');
   if(!['current','target'].includes(model.intent))error('logic-intent','$.businessFlow.intent','明确现状分析 current 或目标设计 target。');
+  const cases=new Map();
   const byId=new Map(), usedRules=new Set(),usedApis=new Set(),usedTransitions=new Set(),coveredReqs=new Set(),transitionPhases=new Map(),drawnPhases=new Set();
   const ref=(id,prefix,path)=>{
     if(typeof id!=='string'||!id.startsWith(prefix+'-')||!index.has(id)){error('logic-ref',path,'未知或类型不符的引用：'+String(id));return null;}
@@ -84,7 +85,7 @@ export function validateBusinessFlow(spec,index){
     const accepts=acs.map(id=>index.get(id));
     const allowedRules=uniq(requirements.flatMap(r=>arr(r.ruleIds)));
     for(const a of accepts)if(!intersection(arr(a.requirementIds),reqs))error('logic-acceptance',at+'.acceptanceIds',a.id+' 不属于本场景需求。');
-    const pathRules=new Set(),pathItems=new Set();
+    const pathRules=new Set();
     const snapshot=(values,key)=>{
       const result=new Map();
       for(const id of refs(values,'STATE',at+'.'+key)){
@@ -95,6 +96,10 @@ export function validateBusinessFlow(spec,index){
       return result;
     };
     const state=snapshot(s.startStateIds,'startStateIds'),expected=snapshot(s.endStateIds,'endStateIds');
+    const norm=v=>typeof v==='string'?v.normalize('NFKC').replace(/\s/gu,''):'';
+    const caseKey=JSON.stringify([s.phase,s.actorId,norm(s.trigger),norm(s.condition),[...state].sort((a,b)=>String(a[0]).localeCompare(String(b[0])))]);
+    if(cases.has(caseKey))error('logic-ambiguous-branch',at+'.condition','与 '+cases.get(caseKey)+' 的入口、条件和起始状态相同；请合并路径或明确区分分支条件。');
+    else cases.set(caseKey,s.id);
     const steps=records(s.steps);
     if(!Array.isArray(s.steps)||!steps.length||steps.length!==s.steps.length)error('logic-steps',at+'.steps','至少有一个可追踪业务步骤。');
     for(const [j,step] of steps.entries()){
@@ -105,7 +110,7 @@ export function validateBusinessFlow(spec,index){
       const rules=refs(step.ruleIds,'BR',sp+'.ruleIds',true),apis=refs(step.apiIds,'API',sp+'.apiIds'),trans=refs(step.transitionIds,'TR',sp+'.transitionIds');
       for(const id of rules){
         const r=index.get(id);
-        pathRules.add(id);usedRules.add(id);pathItems.add(id);
+        pathRules.add(id);usedRules.add(id);
         if(!allowedRules.includes(id))error('logic-rule-scope',sp+'.ruleIds',id+' 不属于本场景需求。');
         if(s.phase==='current'&&r.basis==='decision')error('logic-current-decision',sp+'.ruleIds','现状不能以拟议设计作为事实：'+id);
       }
@@ -116,9 +121,9 @@ export function validateBusinessFlow(spec,index){
           if(!accepts.some(a=>arr(a.requirementIds).includes(req.id)&&arr(a.refs).includes(rule)&&arr(a.refs).includes(id)))error('logic-path-acceptance',sp,req.id+' 的本场景验收须同时引用 '+rule+' 和 '+id+'。');
         }
       };
-      for(const id of apis){usedApis.add(id);pathItems.add(id);cover(id,index.get(id).ruleIds);}
+      for(const id of apis){usedApis.add(id);cover(id,index.get(id).ruleIds);}
       for(const id of trans){
-        usedTransitions.add(id);pathItems.add(id);
+        usedTransitions.add(id);
         const t=index.get(id),a=index.get(t.from),b=index.get(t.to);
         cover(id,t.ruleIds);
         if(!transitionPhases.has(id))transitionPhases.set(id,new Set());
@@ -169,9 +174,10 @@ export function validateBusinessFlow(spec,index){
           if(!same(ns,canonical.nodes.map(n=>[n.id,n.label,n.ref]))||!same(es,canonical.edges.map(e=>[e.id,e.from,e.to,e.label,e.refs,e.apiId,e.transitionId])))error('logic-flow-mismatch',at,'流程图与规范业务路径不一致；请重新执行 flow 命令生成。');
         }catch(e){error('logic-flow-mismatch',at,e.message);}
       }else{
-        const calls=records(d.edges).filter(e=>e.apiId).map(e=>e.apiId);
-        const expectedCalls=records(s.steps).flatMap(step=>arr(step.apiIds));
-        if(!same(calls,expectedCalls))error('logic-sequence-mismatch',at,'时序图的 API 调用顺序须与场景步骤一致。');
+        const nodes=new Map(records(d.nodes).map(n=>[n.id,n.ref]));
+        const calls=records(d.edges).filter(e=>e.apiId).map(e=>[e.apiId,nodes.get(e.from)]);
+        const expectedCalls=records(s.steps).flatMap(step=>arr(step.apiIds).map(id=>[id,step.actorId]));
+        if(!same(calls,expectedCalls))error('logic-sequence-mismatch',at,'时序图的 API 调用顺序和调用者须与场景步骤一致。');
         const pathRefs=uniq(records(s.steps).flatMap(step=>[...arr(step.ruleIds),...arr(step.transitionIds),...arr(step.apiIds)]));
         for(const e of records(d.edges).filter(e=>!e.apiId))if(!arr(e.refs).some(r=>pathRefs.includes(r)))error('logic-sequence-ref',at,'非 API 消息须引用本场景规则、接口或迁移。');
       }

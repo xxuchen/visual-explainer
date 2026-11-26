@@ -161,7 +161,8 @@
         "id 唯一",
         "status 取值与 STATE-* 共用定义",
         "userId 来自认证上下文，不接受客户端覆盖"
-      ]
+      ],
+      "lifecycleField": "status"
     },
     {
       "id": "DATA-receipt",
@@ -364,79 +365,68 @@
           "to": "submitted",
           "transitionId": "TR-repeat"
         }
-      ]
+      ],
+      "phase": "target"
     },
     {
       "id": "DIAG-flow",
-      "title": "首次、重试与冲突的处理",
+      "title": "首次提交",
       "type": "flow",
-      "purpose": "先检索幂等结果，再按请求摘要决定提交、复用或拒绝。",
+      "purpose": "展示该场景的处理顺序与结果。",
+      "scenarioId": "SCN-first",
       "nodes": [
         {
-          "id": "receive",
-          "label": "校验身份与幂等键"
+          "id": "entry",
+          "label": "客户端：提交订单"
         },
         {
-          "id": "find",
-          "label": "读取已有提交结果"
+          "id": "step1",
+          "label": "客户端：发送提交请求"
         },
         {
-          "id": "first",
-          "ref": "BR-submit"
+          "id": "step2",
+          "label": "订单服务：事务保存订单及提交结果"
         },
         {
-          "id": "repeat",
-          "ref": "BR-repeat"
-        },
-        {
-          "id": "conflict",
-          "ref": "BR-conflict"
+          "id": "result",
+          "label": "返回新订单结果"
         }
       ],
       "edges": [
         {
-          "id": "check",
-          "from": "receive",
-          "to": "find",
-          "label": "校验通过",
+          "id": "edge1",
+          "from": "entry",
+          "to": "step1",
+          "label": "请求合法，幂等键未占用",
           "refs": [
+            "BR-submit",
             "API-submit"
           ]
         },
         {
-          "id": "new",
-          "from": "find",
-          "to": "first",
-          "label": "幂等键未占用",
+          "id": "edge2",
+          "from": "step1",
+          "to": "step2",
+          "label": "继续",
           "refs": [
-            "BR-submit"
+            "BR-submit",
+            "TR-submit"
           ]
         },
         {
-          "id": "same",
-          "from": "find",
-          "to": "repeat",
-          "label": "摘要一致",
-          "refs": [
-            "BR-repeat"
-          ]
-        },
-        {
-          "id": "different",
-          "from": "find",
-          "to": "conflict",
-          "label": "摘要不同",
-          "refs": [
-            "BR-conflict"
-          ]
+          "id": "edge3",
+          "from": "step2",
+          "to": "result",
+          "label": "结果",
+          "refs": []
         }
       ]
     },
     {
       "id": "DIAG-sequence",
-      "title": "提交与重复请求的关键交互",
+      "title": "首次提交的关键交互",
       "type": "sequence",
-      "purpose": "订单和响应在同一事务持久化，重试读取既有响应。",
+      "purpose": "订单与响应在同一事务持久化。",
       "nodes": [
         {
           "id": "client",
@@ -483,35 +473,12 @@
           "to": "client",
           "label": "返回订单与状态",
           "refs": [
+            "BR-submit",
             "DATA-order"
           ]
-        },
-        {
-          "id": "retry",
-          "from": "client",
-          "to": "service",
-          "apiId": "API-submit"
-        },
-        {
-          "id": "read",
-          "from": "service",
-          "to": "store",
-          "label": "读取原响应并校验摘要",
-          "refs": [
-            "BR-repeat"
-          ]
-        },
-        {
-          "id": "existing",
-          "from": "service",
-          "to": "client",
-          "label": "返回既有结果",
-          "refs": [
-            "BR-repeat",
-            "TR-repeat"
-          ]
         }
-      ]
+      ],
+      "scenarioId": "SCN-first"
     },
     {
       "id": "DIAG-er",
@@ -659,6 +626,152 @@
     ],
     "monitoring": [
       "监控提交成功率、冲突率、锁等待和重复写入数量"
+    ]
+  },
+  "businessFlow": {
+    "version": 1,
+    "intent": "target",
+    "scenarios": [
+      {
+        "id": "SCN-first",
+        "title": "首次提交",
+        "phase": "target",
+        "kind": "main",
+        "result": "success",
+        "actorId": "COMP-client",
+        "trigger": "提交订单",
+        "condition": "请求合法，幂等键未占用",
+        "steps": [
+          {
+            "actorId": "COMP-client",
+            "action": "发送提交请求",
+            "ruleIds": [
+              "BR-submit"
+            ],
+            "apiIds": [
+              "API-submit"
+            ],
+            "transitionIds": []
+          },
+          {
+            "actorId": "COMP-order",
+            "action": "事务保存订单及提交结果",
+            "ruleIds": [
+              "BR-submit"
+            ],
+            "apiIds": [],
+            "transitionIds": [
+              "TR-submit"
+            ]
+          }
+        ],
+        "outcome": "返回新订单结果",
+        "requirementIds": [
+          "REQ-submit"
+        ],
+        "acceptanceIds": [
+          "AC-submit"
+        ],
+        "startStateIds": [
+          "STATE-draft"
+        ],
+        "endStateIds": [
+          "STATE-submitted"
+        ]
+      },
+      {
+        "id": "SCN-retry",
+        "title": "重复提交",
+        "phase": "target",
+        "kind": "main",
+        "result": "success",
+        "actorId": "COMP-client",
+        "trigger": "提交订单",
+        "condition": "已有提交，幂等键和请求摘要一致",
+        "steps": [
+          {
+            "actorId": "COMP-client",
+            "action": "使用原键重试",
+            "ruleIds": [
+              "BR-repeat"
+            ],
+            "apiIds": [
+              "API-submit"
+            ],
+            "transitionIds": []
+          },
+          {
+            "actorId": "COMP-order",
+            "action": "读取既有结果",
+            "ruleIds": [
+              "BR-repeat"
+            ],
+            "apiIds": [],
+            "transitionIds": [
+              "TR-repeat"
+            ]
+          }
+        ],
+        "outcome": "返回原订单结果",
+        "requirementIds": [
+          "REQ-submit"
+        ],
+        "acceptanceIds": [
+          "AC-repeat"
+        ],
+        "startStateIds": [
+          "STATE-submitted"
+        ],
+        "endStateIds": [
+          "STATE-submitted"
+        ]
+      },
+      {
+        "id": "SCN-conflict",
+        "title": "内容冲突",
+        "phase": "target",
+        "kind": "exception",
+        "result": "rejected",
+        "actorId": "COMP-client",
+        "trigger": "提交订单",
+        "condition": "已有提交，幂等键相同但请求摘要不同",
+        "steps": [
+          {
+            "actorId": "COMP-client",
+            "action": "使用已占用的键提交",
+            "ruleIds": [
+              "BR-conflict"
+            ],
+            "apiIds": [
+              "API-submit"
+            ],
+            "transitionIds": []
+          },
+          {
+            "actorId": "COMP-order",
+            "action": "拒绝覆盖原订单",
+            "ruleIds": [
+              "BR-conflict"
+            ],
+            "apiIds": [],
+            "transitionIds": []
+          }
+        ],
+        "outcome": "返回 409，保留原订单和结果",
+        "requirementIds": [
+          "REQ-conflict"
+        ],
+        "acceptanceIds": [
+          "AC-conflict"
+        ],
+        "startStateIds": [
+          "STATE-submitted"
+        ],
+        "endStateIds": [
+          "STATE-submitted"
+        ],
+        "highlight": true
+      }
     ]
   }
 }
