@@ -1,0 +1,1435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/xxuchen/visual-explainer/software-design/schema/v1",
+  "title": "Visual Explainer 软件方案 v1",
+  "$comment": "This schema describes source structure. Run cli.mjs validate for global IDs, typed links, coverage, state reachability and execution receipt checks.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "summary",
+    "language",
+    "scope",
+    "terms",
+    "components",
+    "requirements",
+    "rules",
+    "data",
+    "states",
+    "transitions",
+    "apis",
+    "diagrams",
+    "acceptance",
+    "decisions",
+    "risks",
+    "quality",
+    "delivery"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^DESIGN-[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "title": {
+      "$ref": "#/$defs/text"
+    },
+    "summary": {
+      "$ref": "#/$defs/text"
+    },
+    "language": {
+      "const": "zh-CN"
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "goals",
+        "in",
+        "out",
+        "assumptions"
+      ],
+      "properties": {
+        "goals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "in": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "out": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "terms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/term"
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/component"
+      },
+      "minItems": 1
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      },
+      "minItems": 1
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      },
+      "minItems": 1
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/data"
+      }
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/state"
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition"
+      }
+    },
+    "apis": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/api"
+      }
+    },
+    "diagrams": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagram"
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/acceptance"
+      },
+      "minItems": 1
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/risk"
+      }
+    },
+    "quality": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/quality"
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "required": [
+        "implementation",
+        "migration",
+        "rollback",
+        "monitoring"
+      ],
+      "properties": {
+        "implementation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "migration": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "rollback": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "monitoring": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "review": {
+      "type": "object",
+      "description": "Optional bounded review view. When present, compact is the default presentation; full rendering remains available.",
+      "required": [
+        "points",
+        "diagramIds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "required": [
+              "title",
+              "text",
+              "refs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "$ref": "#/$defs/text"
+              },
+              "text": {
+                "$ref": "#/$defs/text"
+              },
+              "refs": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "diagramIds": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DIAG-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          }
+        }
+      }
+    },
+    "businessFlow": {
+      "type": "object",
+      "required": [
+        "version",
+        "intent",
+        "scenarios"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "intent": {
+          "enum": [
+            "current",
+            "target"
+          ]
+        },
+        "scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "phase",
+              "kind",
+              "result",
+              "actorId",
+              "trigger",
+              "condition",
+              "steps",
+              "outcome",
+              "requirementIds",
+              "acceptanceIds",
+              "startStateIds",
+              "endStateIds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^SCN-[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "title": {
+                "$ref": "#/$defs/text"
+              },
+              "phase": {
+                "enum": [
+                  "current",
+                  "target"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "main",
+                  "exception"
+                ]
+              },
+              "highlight": {
+                "type": "boolean"
+              },
+              "result": {
+                "enum": [
+                  "success",
+                  "rejected",
+                  "pending",
+                  "failed"
+                ]
+              },
+              "actorId": {
+                "type": "string",
+                "pattern": "^COMP-"
+              },
+              "trigger": {
+                "$ref": "#/$defs/text"
+              },
+              "condition": {
+                "$ref": "#/$defs/text"
+              },
+              "outcome": {
+                "$ref": "#/$defs/text"
+              },
+              "requirementIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^REQ-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                },
+                "minItems": 1
+              },
+              "acceptanceIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^AC-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                },
+                "minItems": 1
+              },
+              "startStateIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "endStateIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "actorId",
+                    "action",
+                    "ruleIds",
+                    "apiIds",
+                    "transitionIds"
+                  ],
+                  "properties": {
+                    "actorId": {
+                      "type": "string",
+                      "pattern": "^COMP-"
+                    },
+                    "action": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "ruleIds": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^BR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      },
+                      "minItems": 1
+                    },
+                    "apiIds": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^API-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      }
+                    },
+                    "transitionIds": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^TR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "term": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "definition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TERM-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "definition": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": true
+    },
+    "component": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "responsibility",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^COMP-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "responsibility": {
+          "$ref": "#/$defs/text"
+        },
+        "kind": {
+          "enum": [
+            "actor",
+            "service",
+            "external",
+            "store"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "requirement": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "text",
+        "priority",
+        "ruleIds",
+        "acceptanceIds"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REQ-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        },
+        "priority": {
+          "enum": [
+            "must",
+            "should",
+            "could"
+          ]
+        },
+        "ruleIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^BR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "acceptanceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^AC-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "text",
+        "refs",
+        "basis",
+        "source"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^BR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "text": {
+          "$ref": "#/$defs/text"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "uniqueItems": true
+        },
+        "basis": {
+          "enum": [
+            "fact",
+            "assumption",
+            "decision"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": true
+    },
+    "field": {
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "required",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "type": {
+          "$ref": "#/$defs/text"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": true
+    },
+    "data": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "termId",
+        "fields",
+        "constraints"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DATA-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "termId": {
+          "type": "string",
+          "pattern": "^TERM-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "minItems": 1
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "lifecycleField": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": true
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "dataId",
+        "initial",
+        "terminal"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "dataId": {
+          "type": "string",
+          "pattern": "^DATA-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "initial": {
+          "type": "boolean"
+        },
+        "terminal": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "transition": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "from",
+        "to",
+        "event",
+        "guard",
+        "action",
+        "ruleIds"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "event": {
+          "$ref": "#/$defs/text"
+        },
+        "guard": {
+          "$ref": "#/$defs/text"
+        },
+        "action": {
+          "$ref": "#/$defs/text"
+        },
+        "ruleIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^BR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "apiError": {
+      "type": "object",
+      "required": [
+        "code",
+        "condition",
+        "handling"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/text"
+        },
+        "condition": {
+          "$ref": "#/$defs/text"
+        },
+        "handling": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": true
+    },
+    "api": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "method",
+        "path",
+        "owner",
+        "ruleIds",
+        "dataIds",
+        "transitionIds",
+        "request",
+        "response",
+        "errors"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^API-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/[^\\s?#]*$"
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^COMP-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "ruleIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^BR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "dataIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^DATA-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "uniqueItems": true
+        },
+        "transitionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^TR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "uniqueItems": true
+        },
+        "request": {
+          "$ref": "#/$defs/text"
+        },
+        "response": {
+          "$ref": "#/$defs/text"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/apiError"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "localId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/localId"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": true,
+      "oneOf": [
+        {
+          "required": [
+            "ref"
+          ],
+          "not": {
+            "required": [
+              "label"
+            ]
+          }
+        },
+        {
+          "required": [
+            "label"
+          ],
+          "not": {
+            "required": [
+              "ref"
+            ]
+          }
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/localId"
+        },
+        "from": {
+          "$ref": "#/$defs/localId"
+        },
+        "to": {
+          "$ref": "#/$defs/localId"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "apiId": {
+          "type": "string",
+          "pattern": "^API-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "transitionId": {
+          "type": "string",
+          "pattern": "^TR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true,
+      "oneOf": [
+        {
+          "required": [
+            "label"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "apiId"
+                ]
+              },
+              {
+                "required": [
+                  "transitionId"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "apiId"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "label"
+                ]
+              },
+              {
+                "required": [
+                  "transitionId"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "transitionId"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "label"
+                ]
+              },
+              {
+                "required": [
+                  "apiId"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "diagram": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "type",
+        "purpose",
+        "nodes",
+        "edges"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DIAG-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "type": {
+          "enum": [
+            "context",
+            "flow",
+            "state",
+            "sequence",
+            "er"
+          ]
+        },
+        "purpose": {
+          "$ref": "#/$defs/text"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "minItems": 1,
+          "maxItems": 12
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "scenarioId": {
+          "type": "string",
+          "pattern": "^SCN-"
+        },
+        "phase": {
+          "enum": [
+            "current",
+            "target"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "context",
+                  "sequence"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "nodes": {
+                "items": {
+                  "required": [
+                    "ref"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^COMP-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "state"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "nodes": {
+                "items": {
+                  "required": [
+                    "ref"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "er"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "nodes": {
+                "items": {
+                  "required": [
+                    "ref"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^DATA-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sequence"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "nodes": {
+                "maxItems": 5
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "state"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "edges": {
+                "items": {
+                  "required": [
+                    "transitionId"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not-run",
+            "skipped",
+            "passed",
+            "failed"
+          ]
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        },
+        "receipt": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![A-Za-z]:|[\\\\/]|[A-Za-z]+:)[^\\u0000]+$"
+        }
+      },
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "skipped"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "passed",
+                  "failed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "receipt"
+            ]
+          }
+        }
+      ]
+    },
+    "acceptance": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "given",
+        "when",
+        "then",
+        "requirementIds",
+        "refs",
+        "verification"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^AC-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "given": {
+          "$ref": "#/$defs/text"
+        },
+        "when": {
+          "$ref": "#/$defs/text"
+        },
+        "then": {
+          "$ref": "#/$defs/text"
+        },
+        "requirementIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^REQ-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "verification": {
+          "$ref": "#/$defs/verification"
+        }
+      },
+      "additionalProperties": true
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "options",
+        "choice",
+        "rationale",
+        "refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DEC-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 1
+        },
+        "choice": {
+          "$ref": "#/$defs/text"
+        },
+        "rationale": {
+          "$ref": "#/$defs/text"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "risk": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "impact",
+        "mitigation",
+        "owner",
+        "refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RISK-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "impact": {
+          "$ref": "#/$defs/text"
+        },
+        "mitigation": {
+          "$ref": "#/$defs/text"
+        },
+        "owner": {
+          "$ref": "#/$defs/text"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "target",
+        "measurement",
+        "acceptanceIds"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^NFR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "target": {
+          "$ref": "#/$defs/text"
+        },
+        "measurement": {
+          "$ref": "#/$defs/text"
+        },
+        "acceptanceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^AC-[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "required": [
+            "review"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "terms": {
+            "minItems": 1
+          },
+          "diagrams": {
+            "minItems": 1
+          },
+          "decisions": {
+            "minItems": 1
+          },
+          "risks": {
+            "minItems": 1
+          },
+          "quality": {
+            "minItems": 1
+          },
+          "delivery": {
+            "properties": {
+              "migration": {
+                "minItems": 1
+              },
+              "rollback": {
+                "minItems": 1
+              },
+              "monitoring": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
