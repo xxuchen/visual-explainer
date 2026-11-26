@@ -88,7 +88,40 @@ function validRecord(record,agent) {
     eq(path.resolve(record.path),agent.target)&&record.owner===OWNER&&
     typeof record.installId==='string'&&/^[a-f0-9-]{36}$/i.test(record.installId);
 }
-function openState(root,agents) {
+// Windows uses an OS-held acquisition guard to make stale-PID recovery
+// safe between concurrent new managers. The persistent operation.lock still
+// interoperates with old launchers and protects the actual Node operation.
+function acquireOperationLock(root,dir,lock,log) {
+  safePath(root,lock,'file');
+  const token=randomUUID();
+  if(process.platform==='win32'){
+    safePath(root,path.join(dir,'operation.acquire.guard'),'file');
+    const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+    const helper=path.join(REPO,'scripts','acquire-operation-lock.ps1');
+    const r=spawnSync(ps,['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',helper,
+      '-StateDirectory',dir,'-OwnerProcessId',String(process.pid),'-Token',token],
+      {encoding:'utf8',shell:false,windowsHide:true});
+    if(r.error)throw r.error;
+    if(r.stdout?.trim())log(r.stdout.trim());
+    if(r.status!==0)fail(r.stderr?.trim()||'Cannot acquire lifecycle lock: '+lock);
+  }else{
+    // The public lifecycle is Windows-only. Keep conservative create-new
+    // locking for portable unit tests; never race stale-lock deletion here.
+    let fd;
+    try{fd=fs.openSync(lock,'wx');}
+    catch(e){if(e.code==='EEXIST')fail('Another lifecycle operation is active or its lock remains: '+lock);throw e;}
+    try{fs.writeFileSync(fd,JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),token}));}
+    catch(e){fs.closeSync(fd);fs.unlinkSync(lock);throw e;}
+    fs.closeSync(fd);
+  }
+  return ()=>{
+    const current=readJson(root,lock);
+    if(current?.pid!==process.pid||current?.token!==token)
+      fail('Lifecycle lock ownership changed; refusing to remove it: '+lock);
+    fs.unlinkSync(lock);
+  };
+}
+function openState(root,agents,log) {
   const dir=path.join(root,STATE), ownerFile=path.join(dir,'owner.json'), registry=path.join(dir,'installations.json');
   ensureDir(root,dir);
   const owner=readJson(root,ownerFile);
@@ -97,11 +130,8 @@ function openState(root,agents) {
     fs.writeFileSync(ownerFile,JSON.stringify({owner:OWNER,schemaVersion:1})+'\n',{flag:'wx'});
   } else if(owner.owner!==OWNER||owner.schemaVersion!==1)fail('Unknown manager directory format: '+dir);
   const lock=path.join(dir,'operation.lock');
-  safePath(root,lock,'file');
-  let fd;
-  try{fd=fs.openSync(lock,'wx');}catch(e){if(e.code==='EEXIST')fail('Another lifecycle operation is active, or a prior operation was interrupted. Check operation.lock before manually removing it: '+lock);throw e;}
+  const release=acquireOperationLock(root,dir,lock,log);
   try{
-    fs.writeFileSync(fd,JSON.stringify({pid:process.pid,startedAt:new Date().toISOString()}));
     const data=readJson(root,registry);
     const records=new Map();
     if(data!==null){
@@ -112,8 +142,8 @@ function openState(root,agents) {
         records.set(record.id,record);
       }
     }
-    return {dir,registry,records,close(){fs.closeSync(fd);fs.unlinkSync(lock);}};
-  }catch(e){fs.closeSync(fd);fs.unlinkSync(lock);throw e;}
+    return {dir,registry,records,close:release};
+  }catch(e){release();throw e;}
 }
 function save(state,root,records) {
   atomicJson(root,state.registry,{owner:OWNER,schemaVersion:1,installations:[...records.values()]});
@@ -275,7 +305,7 @@ export async function manage(opts,{build=buildWithInstaller,verify=verifyInstall
   if(!fs.statSync(root).isDirectory())fail('User profile must be a directory.');
   const repoRoot=path.resolve(opts.repoRoot||REPO);
   if(eq(root,repoRoot)||within(repoRoot,root))fail('Profile root must be outside the source repository.');
-  const agents=catalog(root), state=openState(root,agents);
+  const agents=catalog(root), state=openState(root,agents,log);
   let runDir=null;
   const errors=[];
   try{

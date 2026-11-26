@@ -135,3 +135,45 @@ test('interactive selection accepts numbers and rejects unknown entries',async t
   await f.run('install',{}, {ask:async()=> '1,8'});
   assert.deepEqual(f.records().map(x=>x.id),['codex','dsh']);
 });
+
+test('active lifecycle lock is preserved and prevents another operation',async t=>{
+  const f=fixture(t);
+  await f.run('install',{agents:'codex'});
+  const lock=path.join(f.state,'operation.lock');
+  const data=JSON.stringify({pid:process.pid,startedAt:new Date().toISOString()});
+  fs.writeFileSync(lock,data);
+  await assert.rejects(()=>f.run('reinstall'),/lifecycle operation/i);
+  assert.equal(fs.readFileSync(lock,'utf8'),data);
+  fs.unlinkSync(lock);
+});
+test('Windows automatically recovers a dead legacy lock but preserves invalid locks',{skip:process.platform!=='win32'},async t=>{
+  const f=fixture(t);
+  await f.run('install',{agents:'codex'});
+  const lock=path.join(f.state,'operation.lock');
+  // Windows PIDs are allocated by the OS; Int32.MaxValue cannot be an
+  // allocated Windows PID (process IDs are multiples of four).
+  fs.writeFileSync(lock,JSON.stringify({pid:2147483647,startedAt:'2020-01-01T00:00:00Z'}));
+  f.setVersion('v2');
+  const logs=[];
+  const result=await f.run('reinstall',{}, {log:m=>logs.push(m)});
+  assert.equal(result.ok,true);
+  assert.ok(logs.some(m=>m.includes('[RECOVERED]')));
+  assert.equal(fs.existsSync(lock),false);
+  assert.match(fs.readFileSync(path.join(f.target('codex'),'SKILL.md'),'utf8'),/v2/);
+  fs.writeFileSync(lock,'{');
+  await assert.rejects(()=>f.run('reinstall'),/unreadable or incomplete lock/i);
+  assert.equal(fs.readFileSync(lock,'utf8'),'{');
+  fs.unlinkSync(lock);
+});
+test('a concurrent operation during interactive selection cannot take the lock',async t=>{
+  const f=fixture(t);
+  let entered, finish;
+  const ready=new Promise(resolve=>{entered=resolve;});
+  const answer=new Promise(resolve=>{finish=resolve;});
+  const first=f.run('install',{}, {ask:async()=>{entered();return answer;}});
+  await ready;
+  try{await assert.rejects(()=>f.run('install',{agents:'dsh'}),/lifecycle operation/i);}
+  finally{finish('codex');await first;}
+  assert.deepEqual(f.records().map(r=>r.id),['codex']);
+  assert.equal(fs.existsSync(path.join(f.state,'operation.lock')),false);
+});
