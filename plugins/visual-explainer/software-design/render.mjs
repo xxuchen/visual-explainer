@@ -1,6 +1,7 @@
 // Opt-in Chinese design report. Every display is derived from one JSON source.
 import { indexDesign, labelFor } from './model.mjs';
 import { renderDiagram } from './diagrams.mjs';
+import { renderBusinessRows } from './business-flow.mjs';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
@@ -90,6 +91,9 @@ body.sd-document { margin:0;background:#f3f6f7;color:#193344;font-family:var(--f
 .sd-toolbar { display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px; }
 .sd-toolbar input { min-width:0;max-width:100%;width:360px;border:1px solid #a8bdc8;border-radius:6px;padding:10px 12px;background:#fff;color:#193344;font:inherit;font-size:.9rem; }
 .sd-main .sd-section:first-of-type { margin-top:32px; }
+.sd-business{border-top:1px solid #cbd9e0;padding-top:18px}
+.sd-business-row{border:1px solid #d5e0e5;background:white;padding:12px 16px;border-radius:6px;margin-top:12px}
+.sd-business-row p{margin:5px 0}
 .sd-footer { color:#536b7b;font-size:.84rem;border-top:1px solid #cbd9e0;padding-top:22px; }
 @media(max-width:720px) { .sd-main { padding:28px 18px 70px; } .sd-stats { grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; } .sd-grid { grid-template-columns:1fr; } .sd-panel { padding:17px; } .sd-diagram { padding:14px; } .sd-section-head { display:block; } .sd-section-head p { margin-top:8px; } .sd-facts { grid-template-columns:1fr;gap:5px; } .sd-facts dd + dt { margin-top:10px; } }
 @media print { body.sd-document { background:#fff; } .sd-main { max-width:none;padding:0; } .sd-main > * + * { margin-top:24px; } .sd-nav,.sd-toolbar { display:none; } .sd-panel,.sd-diagram { break-inside:avoid; } .sd-diagram-scroll { overflow:visible; } .sd-svg { min-width:0!important;max-width:100%;height:auto; } .sd-table-wrap { overflow:visible; } .sd-table-wrap table { min-width:0; } }
@@ -161,9 +165,9 @@ export function renderDesignSource(spec, validation) {
 
   const embedded = JSON.stringify(spec).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
   return `<!doctype html>
-<html lang="zh-CN" data-register="paper" data-sd-profile="1">
+<html lang="zh-CN" data-register="paper" data-sd-profile="1" data-sd-view="full"${spec.businessFlow?' data-sd-logic="1"':''}>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(spec.title)} · 软件方案</title><link rel="stylesheet" href="kit.css" data-ve-kit><style data-sd-style>${css}</style></head>
-<body class="sd-document"><main class="sd-main"><header id="${esc(spec.id)}"><p class="sd-kicker">SOFTWARE DESIGN · 方案模型 V${esc(spec.schemaVersion)} · ${phase === 'delivery' ? '交付检查' : '设计评审'}</p><h1>${esc(spec.title)}</h1><p class="sd-lead">${esc(spec.summary)}</p><div class="sd-stats"><div class="sd-stat"><strong>方案结构与覆盖</strong>${badge(validation?.ok ? 'passed' : 'failed')}<p>${esc(spec.id)} · ${validation?.errors?.length ?? 0} 项错误</p></div><div class="sd-stat"><strong>业务验收执行</strong>${badge(businessStatus)}<p>${passed} / ${acceptance.length} 项通过且证据有效</p></div><div class="sd-stat"><strong>HTML 静态检查</strong>${badge(staticCheck.status)}<p>${esc(briefReason(staticCheck.reason, '资源、标识、锚点和图完整性'))}</p></div><div class="sd-stat"><strong>浏览器页面检查</strong>${badge(browserCheck.status)}<p>${esc(briefReason(browserCheck.reason, '独立检查窄屏、中文标签和脚本错误'))}</p></div></div>${pageCheckDetails}<nav class="sd-nav" aria-label="方案目录">${nav.map(([id,label]) => `<a href="#${id}">${label}</a>`).join('')}</nav></header>${findingBlock}${scope}${model}${requirements}${diagrams}${interfaces}${states}${decisions}${quality}${delivery}${acceptanceBlock}${traceability}<footer class="sd-footer"><p>Visual Explainer · 可选软件方案模式。文档从单一结构化模型生成，图、表和验收共享稳定 ID。页面可离线阅读；执行回执由源文件所在目录中的证据文件核验。</p></footer></main><script type="application/json" id="sd-source">${embedded}</script><script data-sd-script>
+<body class="sd-document"><main class="sd-main"><header id="${esc(spec.id)}"><p class="sd-kicker">SOFTWARE DESIGN · 方案模型 V${esc(spec.schemaVersion)} · ${phase === 'delivery' ? '交付检查' : '设计评审'}</p><h1>${esc(spec.title)}</h1><p class="sd-lead">${esc(spec.summary)}</p><div class="sd-stats"><div class="sd-stat"><strong>方案结构与覆盖</strong>${badge(validation?.ok ? 'passed' : 'failed')}<p>${esc(spec.id)} · ${validation?.errors?.length ?? 0} 项错误</p></div><div class="sd-stat"><strong>业务验收执行</strong>${badge(businessStatus)}<p>${passed} / ${acceptance.length} 项通过且证据有效</p></div><div class="sd-stat"><strong>HTML 静态检查</strong>${badge(staticCheck.status)}<p>${esc(briefReason(staticCheck.reason, '资源、标识、锚点和图完整性'))}</p></div><div class="sd-stat"><strong>浏览器页面检查</strong>${badge(browserCheck.status)}<p>${esc(briefReason(browserCheck.reason, '独立检查窄屏、中文标签和脚本错误'))}</p></div></div>${pageCheckDetails}<nav class="sd-nav" aria-label="方案目录">${nav.map(([id,label]) => `<a href="#${id}">${label}</a>`).join('')}</nav></header>${renderBusinessRows(spec,{compact:false})}${findingBlock}${scope}${model}${requirements}${diagrams}${interfaces}${states}${decisions}${quality}${delivery}${acceptanceBlock}${traceability}<footer class="sd-footer"><p>Visual Explainer · 可选软件方案模式。文档从单一结构化模型生成，图、表和验收共享稳定 ID。页面可离线阅读；执行回执由源文件所在目录中的证据文件核验。</p></footer></main><script type="application/json" id="sd-source">${embedded}</script><script data-sd-script>
 (() => {
   const input = document.getElementById('sd-trace-filter');
   const rows = [...document.querySelectorAll('[data-sd-trace]')];

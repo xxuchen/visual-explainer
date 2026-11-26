@@ -3,7 +3,7 @@
   "id": "DESIGN-list-filter",
   "title": "任务列表状态筛选",
   "language": "zh-CN",
-  "summary": "复用现有查询链路，在任务列表新增状态筛选入口。",
+  "summary": "复用现有查询链路，新增状态筛选入口。",
   "scope": {
     "goals": [
       "按状态查看任务"
@@ -18,6 +18,12 @@
   },
   "terms": [],
   "components": [
+    {
+      "id": "COMP-user",
+      "title": "用户",
+      "kind": "actor",
+      "responsibility": "选择列表状态"
+    },
     {
       "id": "COMP-list",
       "title": "任务列表",
@@ -89,8 +95,8 @@
   "review": {
     "points": [
       {
-        "title": "列表交互",
-        "text": "选择状态时重置到第一页，仅显示有权限且匹配状态的任务；清空后恢复全部授权任务。",
+        "title": "清空条件",
+        "text": "清空状态筛选后恢复全部授权任务。",
         "refs": [
           "REQ-filter",
           "BR-filter",
@@ -99,5 +105,41 @@
       }
     ],
     "diagramIds": []
+  },
+  "businessFlow": {
+    "version": 1,
+    "intent": "target",
+    "scenarios": [
+      {
+        "id": "SCN-filter",
+        "title": "按状态查询",
+        "phase": "target",
+        "kind": "main",
+        "result": "success",
+        "actorId": "COMP-user",
+        "trigger": "选择状态",
+        "condition": "已登录且有列表权限",
+        "steps": [
+          {
+            "actorId": "COMP-list",
+            "action": "按所选状态查询并重置页码",
+            "ruleIds": [
+              "BR-filter"
+            ],
+            "apiIds": [],
+            "transitionIds": []
+          }
+        ],
+        "outcome": "展示匹配的授权任务",
+        "requirementIds": [
+          "REQ-filter"
+        ],
+        "acceptanceIds": [
+          "AC-filter"
+        ],
+        "startStateIds": [],
+        "endStateIds": []
+      }
+    ]
   }
 }

@@ -125,7 +125,7 @@ function isLegacyCodex(root,agent) {
   if(agent.id!=='codex')return false;
   if(!safePath(root,path.join(agent.target,'SKILL.md'),'file')||
      !safePath(root,path.join(agent.target,'software-design','cli.mjs'),'file'))return false;
-  if(!fs.readFileSync(path.join(agent.target,'SKILL.md'),'utf8').includes('## Software design profile (optional)'))return false;
+  if(!fs.readFileSync(path.join(agent.target,'SKILL.md'),'utf8').match(/## Software design profile \((?:optional|required for software business tasks)\)/))return false;
   const dir=path.join(root,'.agents','visual-explainer-output');
   if(!safePath(root,dir,'dir'))return false;
   for(const name of fs.readdirSync(dir)){

@@ -3,6 +3,7 @@
 import { indexDesign } from './model.mjs';
 import { renderDiagram } from './diagrams.mjs';
 import { reviewDiagrams } from './review.mjs';
+import { renderBusinessRows } from './business-flow.mjs';
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const names = {passed:'通过',failed:'失败',skipped:'跳过','not-run':'未执行'};
@@ -18,6 +19,10 @@ html{font-size:16px}body.sd-document{background:var(--bg);color:var(--text);font
 .sd-main p{max-width:none;margin:0;overflow-wrap:anywhere}
 .sd-kicker{font-size:.75rem;color:var(--text-dim);font-weight:600;margin-bottom:7px!important}
 .sd-lead{font-size:1rem;color:#354d5c;margin-bottom:18px!important}
+.sd-business{margin:0 0 16px;min-width:0}
+.sd-business-row{border:1px solid var(--border);background:white;padding:10px 13px;border-radius:6px;margin-top:8px}
+.sd-business-row h3{font-size:.95rem;margin:0 0 5px}
+.sd-business-row p{font-size:.91rem;margin:3px 0}
 .sd-review-points{display:grid;gap:0;background:#fff;border:1px solid var(--border);border-radius:7px;min-width:0}
 .sd-review-point{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;padding:11px 14px;align-items:start;min-width:0}
 .sd-review-point+ .sd-review-point{border-top:1px solid #e3e9ee}
@@ -49,5 +54,5 @@ export function renderCompactSource(spec, validation) {
   const total = spec.acceptance.length, passed = spec.acceptance.filter((a)=>a.verification.status==='passed' && validation.evidence?.[a.id]?.ok).length;
   const business = spec.acceptance.some((a)=>a.verification.status==='failed')?'failed':passed===total&&total>0?'passed':spec.acceptance.every((a)=>a.verification.status==='not-run')?'not-run':'pending';
   const businessText = business==='pending'?'尚未全部通过':status(business);
-  return '<!doctype html><html lang="zh-CN" data-register="paper" data-sd-profile="1" data-sd-view="compact"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + esc(spec.title) + '</title><link rel="stylesheet" href="kit.css" data-ve-kit><style data-sd-style>' + css + '</style></head><body class="sd-document"><main class="sd-main"><header id="' + esc(spec.id) + '"><p class="sd-kicker">软件方案 · ' + (validation.phase==='delivery'?'交付检查':'精简评审') + '</p><h1 data-sd-review-text>' + esc(spec.title) + '</h1><p class="sd-lead" data-sd-review-text>' + esc(spec.summary) + '</p><h2>核心方案</h2><div class="sd-review-points">' + points + '</div>' + pending + '<p class="sd-review-status">结构：' + status(validation.ok?'passed':'failed') + ' · 静态：' + status(validation.pageChecks?.static?.status) + ' · 浏览器：' + status(validation.pageChecks?.browser?.status) + ' · 业务验收：' + businessText + '（' + passed + '/' + total + '）</p></header>' + diagrams + '<footer class="sd-footer">详细模型、来源、接口、数据、验收及追踪关系见设计 JSON 与检查报告。本文仅展示评审要点。</footer></main><script data-sd-script>document.documentElement.dataset.sdReady = "ready";</script></body></html>';
+  return '<!doctype html><html lang="zh-CN" data-register="paper" data-sd-profile="1" data-sd-view="compact"' + (spec.businessFlow?' data-sd-logic="1"':'') + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + esc(spec.title) + '</title><link rel="stylesheet" href="kit.css" data-ve-kit><style data-sd-style>' + css + '</style></head><body class="sd-document"><main class="sd-main"><header id="' + esc(spec.id) + '"><p class="sd-kicker">软件方案 · ' + (validation.phase==='delivery'?'交付检查':'精简评审') + '</p><h1 data-sd-review-text>' + esc(spec.title) + '</h1><p class="sd-lead" data-sd-review-text>' + esc(spec.summary) + '</p>' + renderBusinessRows(spec) + '<h2>关键规则与约束</h2><div class="sd-review-points">' + points + '</div>' + pending + '<p class="sd-review-status">结构：' + status(validation.ok?'passed':'failed') + ' · 静态：' + status(validation.pageChecks?.static?.status) + ' · 浏览器：' + status(validation.pageChecks?.browser?.status) + ' · 业务验收：' + businessText + '（' + passed + '/' + total + '）</p></header>' + diagrams + '<footer class="sd-footer">详细模型、来源、接口、数据、验收及追踪关系见设计 JSON 与检查报告。本文仅展示评审要点。</footer></main><script data-sd-script>document.documentElement.dataset.sdReady = "ready";</script></body></html>';
 }

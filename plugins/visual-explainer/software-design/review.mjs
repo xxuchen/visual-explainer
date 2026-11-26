@@ -1,5 +1,6 @@
 // Review view: a bounded, explicit projection of the checked design model.
 // These checks concern presentation and reference coverage, not business correctness.
+import { businessReviewText } from './business-flow.mjs';
 const array = (value) => Array.isArray(value) ? value : [];
 const plain = (value) => typeof value === 'string' && value.trim().length > 0;
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -10,7 +11,7 @@ export function reviewDiagrams(spec) {
   return array(spec?.review?.diagramIds).map((id) => byId.get(id)).filter(Boolean);
 }
 export function reviewTextLength(spec) {
-  const values = [spec?.title, spec?.summary,
+  const values = [spec?.title, spec?.summary, ...businessReviewText(spec),
     ...array(spec?.review?.points).filter(object).flatMap((p) => [p.title, p.text]),
     ...array(spec?.scope?.assumptions),
     ...reviewDiagrams(spec).flatMap((d) => [d.title, d.purpose])];

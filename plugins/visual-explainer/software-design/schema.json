@@ -249,6 +249,178 @@
           }
         }
       }
+    },
+    "businessFlow": {
+      "type": "object",
+      "required": [
+        "version",
+        "intent",
+        "scenarios"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "intent": {
+          "enum": [
+            "current",
+            "target"
+          ]
+        },
+        "scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "phase",
+              "kind",
+              "result",
+              "actorId",
+              "trigger",
+              "condition",
+              "steps",
+              "outcome",
+              "requirementIds",
+              "acceptanceIds",
+              "startStateIds",
+              "endStateIds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^SCN-[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "title": {
+                "$ref": "#/$defs/text"
+              },
+              "phase": {
+                "enum": [
+                  "current",
+                  "target"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "main",
+                  "exception"
+                ]
+              },
+              "highlight": {
+                "type": "boolean"
+              },
+              "result": {
+                "enum": [
+                  "success",
+                  "rejected",
+                  "pending",
+                  "failed"
+                ]
+              },
+              "actorId": {
+                "type": "string",
+                "pattern": "^COMP-"
+              },
+              "trigger": {
+                "$ref": "#/$defs/text"
+              },
+              "condition": {
+                "$ref": "#/$defs/text"
+              },
+              "outcome": {
+                "$ref": "#/$defs/text"
+              },
+              "requirementIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^REQ-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                },
+                "minItems": 1
+              },
+              "acceptanceIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^AC-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                },
+                "minItems": 1
+              },
+              "startStateIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "endStateIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^STATE-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "actorId",
+                    "action",
+                    "ruleIds",
+                    "apiIds",
+                    "transitionIds"
+                  ],
+                  "properties": {
+                    "actorId": {
+                      "type": "string",
+                      "pattern": "^COMP-"
+                    },
+                    "action": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "ruleIds": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^BR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      },
+                      "minItems": 1
+                    },
+                    "apiIds": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^API-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      }
+                    },
+                    "transitionIds": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^TR-[A-Za-z0-9][A-Za-z0-9_-]*$"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "additionalProperties": true,
@@ -458,6 +630,9 @@
             "$ref": "#/$defs/text"
           },
           "minItems": 1
+        },
+        "lifecycleField": {
+          "$ref": "#/$defs/text"
         }
       },
       "additionalProperties": true
@@ -829,6 +1004,16 @@
           "items": {
             "$ref": "#/$defs/edge"
           }
+        },
+        "scenarioId": {
+          "type": "string",
+          "pattern": "^SCN-"
+        },
+        "phase": {
+          "enum": [
+            "current",
+            "target"
+          ]
         }
       },
       "additionalProperties": true,

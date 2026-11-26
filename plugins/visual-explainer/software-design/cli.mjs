@@ -8,6 +8,7 @@ import { verifyEvidence, recordEvidence } from './evidence.mjs';
 import { renderDesignSource } from './render.mjs';
 import { renderCompactSource } from './compact.mjs';
 import { reviewTextLength } from './review.mjs';
+import { scenarioDiagram } from './business-flow.mjs';
 import { renderWithUpstream } from './upstream.mjs';
 import { inspectHtml, inspectBrowser } from './inspect.mjs';
 
@@ -15,6 +16,8 @@ const usage = `Software design profile (Node >=20)
   init <design.json> [--view compact|full]
   validate <design.json> [--phase design|delivery]
   render <design.json> --out <page.html> [--view compact|full] [--phase design|delivery] [--browser | --require-browser] [--browser-executable <path>]
+  flow <design.json> --scenario SCN-id
+  deliver <page.html> --spec <design.json> [--view compact|full] [--phase design|delivery]
   inspect <page.html> [--spec <design.json>] [--browser | --require-browser] [--browser-executable <path>]
   record <design.json> --acceptance AC-id --receipt evidence/run.json [--cwd <dir>] [--timeout-ms <n>] -- <executable> <args...>
 Paths for receipt and its log are relative to the design JSON. record never edits that JSON.
@@ -24,10 +27,10 @@ Business acceptance, model validation, and HTML checks are reported separately.`
 function parse(args) {
   const command = args.shift();
   if (!command || ['help', '--help', '-h'].includes(command)) return { help: true };
-  if (!['init', 'validate', 'render', 'inspect', 'record'].includes(command)) throw new Error(`Unknown command: ${command}`);
+  if (!['init', 'validate', 'render', 'inspect', 'record', 'flow', 'deliver'].includes(command)) throw new Error(`Unknown command: ${command}`);
   const input = args.shift();
   if (!input || input.startsWith('--')) throw new Error('A source file path is required.');
-  const allowed = { init: ['view'], validate: ['phase'], render: ['out', 'view', 'phase', 'browser', 'require-browser', 'browser-executable'], inspect: ['spec', 'browser', 'require-browser', 'browser-executable'], record: ['acceptance', 'receipt', 'cwd', 'timeout-ms'] }[command];
+  const allowed = { flow: ['scenario'], deliver: ['spec','view','phase'], init: ['view'], validate: ['phase'], render: ['out', 'view', 'phase', 'browser', 'require-browser', 'browser-executable'], inspect: ['spec', 'browser', 'require-browser', 'browser-executable'], record: ['acceptance', 'receipt', 'cwd', 'timeout-ms'] }[command];
   const flags = {};
   let argv = [];
   while (args.length) {
@@ -41,6 +44,8 @@ function parse(args) {
   }
   if (flags.view && !['compact','full'].includes(flags.view)) throw new Error('view must be compact or full.');
   if (flags.phase && !['design', 'delivery'].includes(flags.phase)) throw new Error('phase must be design or delivery.');
+  if (command === 'flow' && !flags.scenario) throw new Error('flow requires --scenario SCN-id.');
+  if (command === 'deliver' && !flags.spec) throw new Error('deliver requires --spec <design.json>.');
   if (command === 'render' && !flags.out) throw new Error('render requires --out <page.html>.');
   if (command === 'record' && (!flags.acceptance || !flags.receipt || !argv.length)) throw new Error('record requires --acceptance, --receipt and an executable after --.');
   return { command, input: resolve(input), flags, argv };
@@ -78,6 +83,37 @@ export async function main(args = process.argv.slice(2)) {
     emit({ profile: 'software-design/v1', status: 'created', path: input, next: 'Replace example requirements and assumptions with project evidence before rendering.' });
     return 0;
   }
+  if (command === 'deliver') {
+    // Final handoff checks the same model, HTML bytes and render report. This
+    // is a consistency gate, not a signed attestation or an agent sandbox.
+    const source = resolve(flags.spec), sourceBytes = readFileSync(source);
+    const spec = JSON.parse(sourceBytes.toString('utf8'));
+    const html = readFileSync(input, 'utf8'), report = readJson(input + '.checks.json');
+    const view = flags.view ?? 'compact', phase = flags.phase ?? 'design';
+    const validation = validationFor(spec, source, phase);
+    const staticCheck = inspectHtml(html,{spec});
+    const errors = [];
+    if (!spec.businessFlow || !validation.ok) errors.push('Business-flow model is missing or invalid.');
+    if (!html.includes('data-sd-profile="1"') || !html.includes('data-sd-logic="1"') || !html.includes('data-sd-view="'+view+'"')) errors.push('Not the requested enhanced software-design view.');
+    if (report?.profile !== 'software-design/v1' || !report.ok || report.logic?.status !== 'passed' ||
+        report.design?.status !== 'passed' || report.static?.status !== 'passed' || report.phase !== phase || report.view !== view)
+      errors.push('Missing or unsuccessful matching render checks.');
+    if (report?.sourceSha256 !== digest(sourceBytes) || report?.htmlSha256 !== digest(html)) errors.push('Source or HTML changed after render.');
+    if (!staticCheck.ok) errors.push('Final static inspection failed.');
+    if (!(report?.browser?.status==='passed'||(report?.browser?.status==='skipped'&&typeof report.browser.reason==='string'&&report.browser.reason.trim()))) errors.push('Browser inspection must be attempted; skipped needs a reason.');
+    const business = Object.fromEntries((Array.isArray(spec.acceptance)?spec.acceptance:[]).filter(a=>a?.id).map(a=>[a.id,a.verification?.status]));
+    if (JSON.stringify(report?.business)!==JSON.stringify(business)) errors.push('Business acceptance states differ from source.');
+    // Reconstruct the canonical HTML from the same model and reported display
+    // statuses, preventing a manually edited page plus refreshed hashes from
+    // passing the supported pipeline. Upstream deterministic rendering required.
+    if (!errors.length) {
+      validation.pageChecks={static:{status:'passed'},browser:report.browser};
+      const canonical=renderWithUpstream(view==='compact'?renderCompactSource(spec,validation):renderDesignSource(spec,validation));
+      if (canonical!==html) errors.push('HTML is not the canonical rendering of the current model and report.');
+    }
+    emit({profile:'software-design/delivery-gate/v1',ok:errors.length===0,view,phase,errors,validationErrors:validation.errors,staticErrors:staticCheck.errors,browser:report?.browser?.status,business,source,output:input,checksPath:input+'.checks.json'});
+    return errors.length?1:0;
+  }
   if (command === 'inspect') {
     const html = readFileSync(input, 'utf8');
     const spec = flags.spec ? readJson(resolve(flags.spec)) : undefined;
@@ -87,7 +123,9 @@ export async function main(args = process.argv.slice(2)) {
     emit({ profile: 'software-design/v1', ok, static: { status: staticCheck.ok ? 'passed' : 'failed', ...staticCheck }, browser, htmlSha256: digest(html) });
     return ok ? 0 : 1;
   }
-  const spec = readJson(input);
+  const sourceBytes = readFileSync(input);
+  const spec = JSON.parse(sourceBytes.toString('utf8'));
+  if (command === 'flow') { emit(scenarioDiagram(spec,flags.scenario)); return 0; }
   if (command === 'record') {
     // Commands are explicit CLI argv. They are never sourced from the document or HTML.
     const receipt = recordEvidence(spec, dirname(input), { acceptanceId: flags.acceptance, receipt: flags.receipt, command: argv, cwd: flags.cwd ? resolve(flags.cwd) : dirname(input), timeoutMs: flags['timeout-ms'] === undefined ? 120000 : Number(flags['timeout-ms']) });
@@ -127,9 +165,11 @@ export async function main(args = process.argv.slice(2)) {
       staticCheck = inspectHtml(html, { spec });
     }
   }
-  const ok = validation.ok && staticCheck.ok && browserOK(browser, flags);
+  const sourceUnchanged = digest(readFileSync(input)) === digest(sourceBytes);
+  const ok = sourceUnchanged && validation.ok && staticCheck.ok && browserOK(browser, flags);
   const report = { profile: 'software-design/v1', ok, phase, view, source: input, output: out, htmlSha256: digest(html),
-    sourceSha256: digest(readFileSync(input)), traceability: validation.traceability,
+    sourceSha256: digest(sourceBytes), traceability: validation.traceability,
+    logic: { status: spec.businessFlow ? 'passed' : 'not-run', scenarioCount: spec.businessFlow?.scenarios?.length ?? 0 },
     ...(view === 'compact' ? { review: { textChars: reviewTextLength(spec), points: spec.review.points, diagramIds: spec.review.diagramIds } } : {}),
     design: { status: validation.ok ? 'passed' : 'failed', errors: validation.errors, warnings: validation.warnings },
     business: Object.fromEntries((spec.acceptance ?? []).map((a) => [a.id, a.verification.status])),

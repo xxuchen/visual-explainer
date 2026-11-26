@@ -2,9 +2,19 @@
 
 ## 使用入口
 
-在用户要求软件方案、需求设计、架构方案、需求对齐、架构评审或交付验收时使用此模式，自动应用下述五项规则和需求到验收的追踪。默认输出精简中文 HTML（核心评审），保留可修改的 JSON 源及检查报告；明确要求完整技术方案时才展开全部技术章节。日常解释、幻灯片、现有 visual plan 等继续使用原有模式。
+在用户要求软件方案、需求设计、架构方案、需求对齐、架构评审、交付验收、梳理现有业务流程、前后台处理、状态机、业务规则或源码业务分析时（含现状说明）必须使用此模式，自动应用下述五项规则和需求到验收的追踪。默认输出精简中文 HTML（核心评审），保留可修改的 JSON 源及检查报告；明确要求完整技术方案时才展开全部技术章节。日常解释、幻灯片、现有 visual plan 等继续使用原有模式。
 
 本模式覆盖通用 SKILL 的字体和交付规则：以最少内容呈现关键业务规则与异常路径；使用本地中文字体；使用本目录的 CLI 生成和检查。无需改写上游 kit、plan、Pi 或 MCP 实现。
+
+## 业务逻辑优先与强制交付（先于排版）
+
+1. **先确定意图与业务边界**：现状分析用 `businessFlow.intent=current`；提出变更用 `target`。每个场景标记 current 或 target，主路径必须符合本次意图。前端已开放、后端保留、拟实现、待确认分别说明，不把拟议决策当成现状。不同触发者或不同业务入口（例如客户取消与管理员关闭未受理订单）分别建路径，不画成一个无条件分支。
+2. **先走完业务，再画图**：每个场景有触发角色、触发动作、入口条件、顺序步骤、结果类型和结果说明。正常、拒绝、待处理及失败路径按实际需求建模；异常条件必须具体，恢复或重试须重新核查资格。每一步引用规则、接口与状态迁移；每条路径关联自己的需求及验收。仅有数据库状态码、方法名称或技术名词不足以解释业务。
+3. **状态对象独立**：区分订单、取消申请、外部处理结果和资金等各自生命周期；只为确实具有独立状态的对象建立模型，使用独立 DATA、实际 lifecycleField、STATE、TR。单张状态图只描述一个状态对象及一个阶段。每条路径声明各对象的起始/最终状态，逐步按 TR 演算；不得从未知状态、错误起点或终态凭空跳转。需要描述多对象关系时用场景内的状态对应关系，不混合为一个虚构状态。真实字段、条件和结果须以项目证据确认。
+4. **跨视图同源**：流程图绑定场景，用 CLI `flow <design.json> --scenario SCN-id` 生成规范节点与箭头，把输出加入 diagrams；禁止另画不一致的箭头。时序图绑定场景，API 调用顺序与步骤一致；状态图标记 phase 并引用真实 TR。先确认路径与验收一致，再写评审结论。机械校验检查引用、顺序、状态连续性、结果和覆盖；自然语言、未建模的分支、真实源代码含义及业务完整性仍必须由 Agent 逐条复核，无法确认时列出待定。
+5. **强制交付链路**：上述软件业务任务即使用户只说“梳理”“解释”“画流程图”，也必须读取本参考、构建带 businessFlow 的 design.json、validate、render、deliver。使用增强 CLI，禁止用普通 kit/render.mjs、手写 HTML、后处理或仅生成 Mermaid 代替。旧版 JSON 可继续通过旧校验，但新交付必须补充 businessFlow。执行 `deliver <实际HTML> --spec <实际JSON> --view compact`（完整模式 full；正式交付验收另加 --phase delivery），仅在返回 ok=true 后作为已检查的软件方案交付。报告必须与源和页面摘要绑定，普通 HTML、缺失报告、过期内容或不匹配视图都失败。门禁失败时修复模型并重渲染；如果工具不可用，明确报告阻塞，不降级成无检查的通用 HTML。浏览器不可用仅可标记 skipped 并给理由，业务验收独立记录。
+
+数据契约及示例见 `software-design/CONTRACT.md` 与精简模板。精简页由规范场景直接生成业务主线，先展示所有主场景及 highlight=true 的关键异常，再补充未在路径表达的约束与待确认事项；路径正文计入原 800 字符预算。完整模型保留其他异常路径。严禁为压缩篇幅删去实际业务主线或重要异常条件。
 
 ## 表达规范（所有软件方案与聊天交付优先遵守）
 
@@ -37,7 +47,7 @@ $visual-explainer 方案：为现有任务列表增加按状态筛选。
 - **交付位置**：写入 `docs/design/<name>.design.json`、`docs/design/<name>.html`、`docs/design/<name>.html.checks.json`；截图由 CLI 放在同名 `.html.screenshots/`。从需求选择简短、稳定的文件名，新方案避开无关文件；迭代既有方案先读原 JSON，保留路径和 ID。
 - **默认范围**：进行方案设计，修改范围限于本次方案产物。若用户明确授权实施，按其授权继续执行相应工作。
 - **方案内容（默认精简）**：先应用六条表达规范，再落实五项设计规则；正文只展示核心结论、关键改动与规则、必要技术条件、待确认事项及 0–2 张核心图。完整且与本次变更相关的技术模型、来源、验收和追踪保存在 JSON/检查报告；不在 HTML 中重复或折叠堆放。明确要求“完整技术方案”才采用完整视图。
-- **验证**：执行 `validate --phase design` 和 `render --view compact --browser`（完整技术方案用 `--view full`），修复结构及静态页面错误，尝试真实浏览器检查。浏览器缺失或受限时记录 `skipped` 和原因；新方案的业务验收默认 `not-run`，四类验证状态分别报告。
+- **验证**：执行 `validate --phase design`、`render --view compact --browser`、`deliver <HTML> --spec <JSON> --view compact`（完整技术方案用 `--view full`），修复结构及静态页面错误，尝试真实浏览器检查。浏览器缺失或受限时记录 `skipped` 和原因；新方案的业务验收默认 `not-run`，四类验证状态分别报告。
 - **对话预览（默认）**：在最终 HTML 的结构、静态和浏览器检查全部通过后，运行本技能 `software-design/chat-preview.mjs`，从当前 HTML 截取一张含核心方案和待确认事项的摘要图及最多两张不同类型的关键设计图，优先流程图和上下文图。图片保存在同名 `.html.screenshots/` 目录，文件名包含图片内容摘要；宽度或高度超限的图保留在完整 HTML 中，避免缩成难以阅读的长图。只使用本次命令返回的 `images`，不要引用旧图或整页长截图。用户明确不需要预览时跳过此步骤。
 - **聊天交付**：默认将本次预览结果中 `images[].markdown` 的每一项作为独立的 Markdown 图片直接写进最终回复（不要放进代码块，也不要仅使用读取图片的工具调用），另给 HTML/JSON/检查报告三个文件链接或路径。文字仍默认不超过 8 行，包含简短结论、关键待确认事项和验证摘要。对话中展示的是静态 PNG；完整方案及可操作交互仍在 HTML。默认不自动打开浏览器。预览状态为 `partial` 时仅展示返回的有效图片；`skipped` 或 `failed` 时简要说明原因并保留 HTML 链接。宿主不支持本地图片渲染时提供对应 PNG 文件链接；不启动 HTTP 服务、不上传项目图片、不声称已成功显示。预览生成状态不等于业务验收通过。用户要求详细解释时按其要求展开。
 
@@ -104,12 +114,12 @@ HTML、同名 `.checks.json` 和源码应一起交付。区分方案结构检查
 ## 工作步骤
 
 1. 读取真实输入，记录来源和未决事项。既有方案升级时先读原 JSON，保留 ID。
-2. 从精简模板创建 JSON，替换全部示例业务内容；只建本次变化及必要依赖，设置 review.points 和 review.diagramIds。完整模式按需采用原模板。逐项建立需求、规则、模型及验收关系。
+2. 从精简模板创建 JSON，替换全部示例业务内容；先建立 businessFlow 场景和状态快照，再建接口/数据/规则与验收，最后设置 review.points 和 review.diagramIds。完整模式按需采用原模板。逐项建立需求、规则、模型及验收关系。
 3. 根据上表绘图，复核正常/失败/重试/并发/超时/回滚路径，确定各项质量目标。
 4. 按六条表达规范复核并压缩评审正文：删过程、分离证据、合并重复结论、调整信息顺序。执行 `validate --phase design`，修复结构和引用错误；处理 `review-repeat`，其他 warnings 给出实际解释或消除对应问题。
 5. 执行 `render --view compact --browser`（完整模式用 `--view full`），查看生成页面和检查报告。浏览器可用时检查截图；发现问题先修正方案 JSON 后重跑。若问题来自生成器，记录故障与受影响产物，按用户授权处理工具修复。环境不能运行浏览器时报告 `skipped`，保留可复查页面。
-6. 按默认对话预览规则执行 `node "<skill-dir>/software-design/chat-preview.mjs" "<实际 HTML 路径>"`，如渲染时指定了 `--browser-executable`，此处沿用。根据实际结果内嵌 PNG 并交付 HTML、JSON、检查报告位置、关键未决事项和验证状态。用户已授权实施时继续完成实施；仅要求方案时等待实际业务决策。
-7. 实施完成后针对 AC 执行测试并记录回执，更新 `verification`，执行 `validate --phase delivery` 和 `render --phase delivery --require-browser`。
+6. 执行 `deliver <HTML> --spec <JSON> --view compact`（完整模式 full），门禁未通过不得交付为标准方案。通过后按默认对话预览规则执行 `node "<skill-dir>/software-design/chat-preview.mjs" "<实际 HTML 路径>"`，如渲染时指定了 `--browser-executable`，此处沿用。根据实际结果内嵌 PNG 并交付 HTML、JSON、检查报告位置、关键未决事项和验证状态。用户已授权实施时继续完成实施；仅要求方案时等待实际业务决策。
+7. 实施完成后针对 AC 执行测试并记录回执，更新 `verification`，执行 `validate --phase delivery`、`render --phase delivery --require-browser` 和 `deliver --phase delivery`（补全 HTML、--spec、--view 参数）。
 
 ## 命令与证据
 
@@ -120,6 +130,7 @@ node "<skill-dir>/software-design/cli.mjs" init docs/design/order.design.json --
 # 编辑 JSON：以真实项目资料替换示例内容
 node "<skill-dir>/software-design/cli.mjs" validate docs/design/order.design.json --phase design
 node "<skill-dir>/software-design/cli.mjs" render docs/design/order.design.json --out docs/design/order.html --view compact --browser
+node "<skill-dir>/software-design/cli.mjs" deliver docs/design/order.html --spec docs/design/order.design.json --view compact
 node "<skill-dir>/software-design/chat-preview.mjs" docs/design/order.html
 ```
 

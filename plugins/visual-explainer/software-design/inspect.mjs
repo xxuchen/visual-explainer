@@ -5,6 +5,7 @@ import { delimiter, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { reviewDiagrams, reviewTextLength, REVIEW_LIMIT } from "./review.mjs";
+import { businessRows, renderBusinessRows } from "./business-flow.mjs";
 
 const COLLECTIONS = ["terms", "components", "requirements", "rules", "data", "states", "transitions", "apis", "diagrams", "acceptance", "decisions", "risks", "quality"];
 const VOID = new Set("area base br col embed hr img input link meta param source track wbr".split(" "));
@@ -153,6 +154,13 @@ export function inspectHtml(html, { spec } = {}) {
     if (box.length !== 4 || box.some((n) => !Number.isFinite(n)) || box[2] <= 0 || box[3] <= 0) error("SVG_VIEWBOX", `${location(svg)} needs a positive finite viewBox.`);
   }
   const compact = roots[0]?.attrs["data-sd-view"] === "compact";
+  if (spec?.businessFlow) {
+    if (roots[0]?.attrs["data-sd-logic"] !== "1") error("LOGIC_PROFILE","Business-flow page marker is missing.");
+    const actual = nodes.filter(n=>Object.hasOwn(n.attrs,"data-sd-scenario")).map(n=>n.attrs["data-sd-scenario"]);
+    const expected = businessRows(spec,{compact}).map(r=>r.id);
+    if (JSON.stringify(actual)!==JSON.stringify(expected)) error("LOGIC_SCENARIOS","Visible business paths differ from the source.");
+    if (!html.includes(renderBusinessRows(spec,{compact}))) error("LOGIC_PROJECTION","Business-path content differs from the canonical source projection.");
+  }
   if (compact) {
     const points = nodes.filter((n) => Object.hasOwn(n.attrs, "data-sd-review-item"));
     const pending = nodes.filter((n) => Object.hasOwn(n.attrs, "data-sd-review-pending"));
